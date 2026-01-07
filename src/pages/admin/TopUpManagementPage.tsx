@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
-import { Play, Eye, Save, Search, X, Calendar as CalendarIcon, Upload, TrendingUp, DollarSign, Users, Clock } from 'lucide-react';
+import { Play, Eye, Search, X, Calendar as CalendarIcon, Upload, TrendingUp, DollarSign, Clock, Download } from 'lucide-react';
 import { AdminLayout } from '@/components/layouts/AdminLayout';
 import { PageHeader } from '@/components/shared/PageHeader';
-import { StatCard } from '@/components/shared/StatCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -53,21 +52,9 @@ import {
   addAuditLog,
   getEducationAccount
 } from '@/lib/dataStore';
-import { formatCurrency, formatDateTime } from '@/lib/data';
+import { formatCurrency, formatDateTime, formatDate } from '@/lib/data';
 import { cn } from '@/lib/utils';
 import { format, startOfWeek, startOfMonth, startOfQuarter, startOfYear } from 'date-fns';
-
-interface BatchPreset {
-  id: string;
-  name: string;
-  minAge: string;
-  maxAge: string;
-  minBalance: string;
-  maxBalance: string;
-  schoolingStatus: string;
-  amount: string;
-  amountType: 'even' | 'per_account';
-}
 
 const TopUpManagementPage: React.FC = () => {
   const educationAccounts = useDataStore(getEducationAccounts);
@@ -77,7 +64,6 @@ const TopUpManagementPage: React.FC = () => {
   const [individualDialogOpen, setIndividualDialogOpen] = useState(false);
   const [batchDialogOpen, setBatchDialogOpen] = useState(false);
   const [successDialogOpen, setSuccessDialogOpen] = useState(false);
-  const [savePresetDialogOpen, setSavePresetDialogOpen] = useState(false);
   
   // Individual top-up states
   const [searchQuery, setSearchQuery] = useState('');
@@ -98,11 +84,7 @@ const TopUpManagementPage: React.FC = () => {
   const [batchScheduleTopUp, setBatchScheduleTopUp] = useState(false);
   const [batchScheduledDate, setBatchScheduledDate] = useState<Date | undefined>();
   const [showPreview, setShowPreview] = useState(false);
-  
-  // Presets
-  const [presets, setPresets] = useState<BatchPreset[]>([]);
-  const [selectedPreset, setSelectedPreset] = useState('');
-  const [presetName, setPresetName] = useState('');
+  const [batchReason, setBatchReason] = useState('');
   
   // Success result
   const [successResult, setSuccessResult] = useState<{
@@ -135,6 +117,10 @@ const TopUpManagementPage: React.FC = () => {
   const yearStart = startOfYear(now);
   const yearTopUps = topUpTransactions.filter(t => new Date(t.createdAt) >= yearStart);
   const yearTotal = yearTopUps.reduce((sum, t) => sum + t.amount, 0);
+
+  // Get scheduled/upcoming top-ups
+  const scheduledTopUps = transactions.filter(t => t.type === 'top_up' && t.status === 'pending');
+  const scheduledBatches = batches.filter(b => b.type === 'top_up' && b.status === 'pending');
 
   const filteredAccounts = educationAccounts.filter(account => {
     const holder = getAccountHolder(account.holderId);
@@ -260,6 +246,15 @@ const TopUpManagementPage: React.FC = () => {
       return;
     }
 
+    if (!batchReason) {
+      toast({
+        title: "Validation Error",
+        description: "Please enter a reason.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (batchScheduleTopUp && !batchScheduledDate) {
       toast({
         title: "Validation Error",
@@ -291,7 +286,7 @@ const TopUpManagementPage: React.FC = () => {
     addBatch({
       id: batchId,
       type: 'top_up',
-      description: `Batch Top-up - ${eligibleAccounts.length} accounts`,
+      description: batchReason,
       totalAmount,
       accountCount: eligibleAccounts.length,
       status: batchScheduleTopUp ? 'pending' : 'completed',
@@ -310,7 +305,7 @@ const TopUpManagementPage: React.FC = () => {
           type: 'top_up',
           amount: amountPerAccount,
           balanceAfter: newBalance,
-          description: `Batch Top-up`,
+          description: batchReason,
           reference: `${batchId}-${account.id}`,
           status: 'completed',
           createdAt: new Date().toISOString(),
@@ -342,51 +337,7 @@ const TopUpManagementPage: React.FC = () => {
     });
     setBatchDialogOpen(false);
     setSuccessDialogOpen(true);
-  };
-
-  const handleSavePreset = () => {
-    if (!presetName) {
-      toast({
-        title: "Validation Error",
-        description: "Please enter a preset name.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const newPreset: BatchPreset = {
-      id: `PRESET${String(Date.now()).slice(-6)}`,
-      name: presetName,
-      minAge,
-      maxAge,
-      minBalance,
-      maxBalance,
-      schoolingStatus,
-      amount: batchAmount,
-      amountType: batchAmountType,
-    };
-
-    setPresets([...presets, newPreset]);
-    setSavePresetDialogOpen(false);
-    setPresetName('');
-    
-    toast({
-      title: "Preset Saved",
-      description: `Preset "${presetName}" has been saved.`,
-    });
-  };
-
-  const loadPreset = (presetId: string) => {
-    const preset = presets.find(p => p.id === presetId);
-    if (preset) {
-      setMinAge(preset.minAge);
-      setMaxAge(preset.maxAge);
-      setMinBalance(preset.minBalance);
-      setMaxBalance(preset.maxBalance);
-      setSchoolingStatus(preset.schoolingStatus);
-      setBatchAmount(preset.amount);
-      setBatchAmountType(preset.amountType);
-    }
+    resetBatchForm();
   };
 
   const resetIndividualForm = () => {
@@ -409,6 +360,14 @@ const TopUpManagementPage: React.FC = () => {
     setBatchScheduleTopUp(false);
     setBatchScheduledDate(undefined);
     setShowPreview(false);
+    setBatchReason('');
+  };
+
+  const handleExport = (type: string) => {
+    toast({
+      title: "Export Started",
+      description: `Exporting ${type} report as CSV...`,
+    });
   };
 
   const eligibleAccounts = getEligibleAccounts();
@@ -421,47 +380,47 @@ const TopUpManagementPage: React.FC = () => {
         description="Manage individual and batch top-ups"
       />
 
-      {/* Mini Dashboard - Top-up Statistics */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5 mb-8">
-        <StatCard
-          title="Today"
-          value={formatCurrency(todayTotal)}
-          subtitle={`${todayTopUps.length} top-ups`}
-          icon={<DollarSign className="h-5 w-5" />}
-          variant="primary"
-        />
-        <StatCard
-          title="This Week"
-          value={formatCurrency(weekTotal)}
-          subtitle={`${weekTopUps.length} top-ups`}
-          icon={<TrendingUp className="h-5 w-5" />}
-          variant="info"
-        />
-        <StatCard
-          title="This Month"
-          value={formatCurrency(monthTotal)}
-          subtitle={`${monthTopUps.length} top-ups`}
-          icon={<Calendar className="h-5 w-5" />}
-          variant="success"
-        />
-        <StatCard
-          title="This Quarter"
-          value={formatCurrency(quarterTotal)}
-          subtitle={`${quarterTopUps.length} top-ups`}
-          icon={<Clock className="h-5 w-5" />}
-          variant="warning"
-        />
-        <StatCard
-          title="This Year"
-          value={formatCurrency(yearTotal)}
-          subtitle={`${yearTopUps.length} top-ups`}
-          icon={<Users className="h-5 w-5" />}
-          variant="primary"
-        />
-      </div>
+      {/* Optimized Mini Dashboard */}
+      <Card className="mb-6">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base flex items-center gap-2">
+            <TrendingUp className="h-4 w-4" />
+            Top-up Summary
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <div className="text-center p-3 rounded-lg bg-secondary/50">
+              <p className="text-xs text-muted-foreground mb-1">Today</p>
+              <p className="text-lg font-bold text-primary">{formatCurrency(todayTotal)}</p>
+              <p className="text-xs text-muted-foreground">{todayTopUps.length} top-ups</p>
+            </div>
+            <div className="text-center p-3 rounded-lg bg-secondary/50">
+              <p className="text-xs text-muted-foreground mb-1">This Week</p>
+              <p className="text-lg font-bold text-primary">{formatCurrency(weekTotal)}</p>
+              <p className="text-xs text-muted-foreground">{weekTopUps.length} top-ups</p>
+            </div>
+            <div className="text-center p-3 rounded-lg bg-secondary/50">
+              <p className="text-xs text-muted-foreground mb-1">This Month</p>
+              <p className="text-lg font-bold text-primary">{formatCurrency(monthTotal)}</p>
+              <p className="text-xs text-muted-foreground">{monthTopUps.length} top-ups</p>
+            </div>
+            <div className="text-center p-3 rounded-lg bg-secondary/50">
+              <p className="text-xs text-muted-foreground mb-1">This Quarter</p>
+              <p className="text-lg font-bold text-primary">{formatCurrency(quarterTotal)}</p>
+              <p className="text-xs text-muted-foreground">{quarterTopUps.length} top-ups</p>
+            </div>
+            <div className="text-center p-3 rounded-lg bg-secondary/50">
+              <p className="text-xs text-muted-foreground mb-1">This Year</p>
+              <p className="text-lg font-bold text-primary">{formatCurrency(yearTotal)}</p>
+              <p className="text-xs text-muted-foreground">{yearTopUps.length} top-ups</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Action Buttons */}
-      <div className="grid gap-4 md:grid-cols-2 mb-8">
+      <div className="grid gap-4 md:grid-cols-2 mb-6">
         <Card 
           className="cursor-pointer hover:shadow-lg transition-shadow border-2 hover:border-primary/50"
           onClick={() => {
@@ -502,6 +461,115 @@ const TopUpManagementPage: React.FC = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Scheduled/Upcoming Top-ups */}
+      {(scheduledTopUps.length > 0 || scheduledBatches.length > 0) && (
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Clock className="h-5 w-5" />
+              Upcoming Top-ups
+            </CardTitle>
+            <CardDescription>Scheduled top-ups pending execution</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>ID</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Description</TableHead>
+                  <TableHead>Accounts</TableHead>
+                  <TableHead className="text-right">Total Amount</TableHead>
+                  <TableHead>Scheduled Date</TableHead>
+                  <TableHead>Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {scheduledBatches.map(batch => (
+                  <TableRow key={batch.id}>
+                    <TableCell className="font-mono">{batch.id}</TableCell>
+                    <TableCell><Badge variant="secondary">Batch</Badge></TableCell>
+                    <TableCell>{batch.description}</TableCell>
+                    <TableCell>{batch.accountCount}</TableCell>
+                    <TableCell className="text-right">{formatCurrency(batch.totalAmount)}</TableCell>
+                    <TableCell>{formatDateTime(batch.createdAt)}</TableCell>
+                    <TableCell>
+                      <Badge variant="warning">Scheduled</Badge>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {scheduledTopUps.slice(0, 5).map(txn => {
+                  const account = getEducationAccount(txn.accountId);
+                  const holder = account ? getAccountHolder(account.holderId) : null;
+                  return (
+                    <TableRow key={txn.id}>
+                      <TableCell className="font-mono">{txn.id}</TableCell>
+                      <TableCell><Badge variant="outline">Individual</Badge></TableCell>
+                      <TableCell>{txn.description}</TableCell>
+                      <TableCell>{holder ? `${holder.firstName} ${holder.lastName}` : txn.accountId}</TableCell>
+                      <TableCell className="text-right">{formatCurrency(txn.amount)}</TableCell>
+                      <TableCell>{formatDateTime(txn.createdAt)}</TableCell>
+                      <TableCell>
+                        <Badge variant="warning">Scheduled</Badge>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Top-up Transactions Report */}
+      <Card className="mb-6">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle>Top-up Transactions</CardTitle>
+            <CardDescription>Detailed list of all top-up transactions</CardDescription>
+          </div>
+          <Button variant="outline" onClick={() => handleExport('top-up')}>
+            <Download className="h-4 w-4 mr-2" />
+            Export CSV
+          </Button>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Date</TableHead>
+                <TableHead>Transaction ID</TableHead>
+                <TableHead>Account</TableHead>
+                <TableHead>Description</TableHead>
+                <TableHead className="text-right">Amount</TableHead>
+                <TableHead>Reference</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {topUpTransactions.slice(0, 20).map(txn => {
+                const account = getEducationAccount(txn.accountId);
+                const holder = account ? getAccountHolder(account.holderId) : null;
+
+                return (
+                  <TableRow key={txn.id}>
+                    <TableCell>{formatDateTime(txn.createdAt)}</TableCell>
+                    <TableCell className="font-mono text-sm">{txn.id}</TableCell>
+                    <TableCell>
+                      {holder ? `${holder.firstName} ${holder.lastName}` : txn.accountId}
+                    </TableCell>
+                    <TableCell>{txn.description}</TableCell>
+                    <TableCell className="text-right font-semibold text-success">
+                      +{formatCurrency(txn.amount)}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">{txn.reference}</TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
 
       {/* Recent Batches */}
       <Card>
@@ -618,25 +686,26 @@ const TopUpManagementPage: React.FC = () => {
               </div>
             )}
 
-            {/* Amount and Reason */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Amount (SGD) *</Label>
-                <Input
-                  type="number"
-                  placeholder="0.00"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Reason *</Label>
-                <Input
-                  placeholder="e.g., Annual Grant"
-                  value={reason}
-                  onChange={(e) => setReason(e.target.value)}
-                />
-              </div>
+            {/* Amount */}
+            <div className="space-y-2">
+              <Label>Amount (SGD) *</Label>
+              <Input
+                type="number"
+                placeholder="0.00"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+              />
+            </div>
+
+            {/* Reason - Large Textarea */}
+            <div className="space-y-2">
+              <Label>Reason *</Label>
+              <Textarea
+                placeholder="e.g., Annual Education Grant, Youth Subsidy, Manual Top-up..."
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                rows={4}
+              />
             </div>
 
             {/* Schedule Top-up */}
@@ -689,7 +758,7 @@ const TopUpManagementPage: React.FC = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Batch Top-up Dialog */}
+      {/* Batch Top-up Dialog - Simplified */}
       <Dialog open={batchDialogOpen} onOpenChange={setBatchDialogOpen}>
         <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -700,28 +769,6 @@ const TopUpManagementPage: React.FC = () => {
           </DialogHeader>
           
           <div className="space-y-6 py-4">
-            {/* Presets */}
-            {presets.length > 0 && (
-              <div className="space-y-2">
-                <Label>Load Preset</Label>
-                <Select value={selectedPreset} onValueChange={(value) => {
-                  setSelectedPreset(value);
-                  loadPreset(value);
-                }}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a saved preset" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {presets.map(preset => (
-                      <SelectItem key={preset.id} value={preset.id}>
-                        {preset.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
             {/* Rules */}
             <div className="space-y-4">
               <h4 className="font-medium">Filter Rules</h4>
@@ -816,6 +863,17 @@ const TopUpManagementPage: React.FC = () => {
               </div>
             </div>
 
+            {/* Reason */}
+            <div className="space-y-2">
+              <Label>Reason *</Label>
+              <Textarea
+                placeholder="e.g., Annual Education Subsidy, Youth Education Grant..."
+                value={batchReason}
+                onChange={(e) => setBatchReason(e.target.value)}
+                rows={3}
+              />
+            </div>
+
             {/* Schedule */}
             <div className="space-y-2">
               <div className="flex items-center space-x-2">
@@ -890,49 +948,13 @@ const TopUpManagementPage: React.FC = () => {
             )}
           </div>
 
-          <DialogFooter className="flex-col sm:flex-row gap-2">
-            <Button variant="outline" onClick={() => setSavePresetDialogOpen(true)}>
-              <Save className="h-4 w-4 mr-2" />
-              Save Preset
-            </Button>
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setBatchDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleBatchTopUp}>
-                <Play className="h-4 w-4 mr-2" />
-                {batchScheduleTopUp ? 'Schedule' : 'Execute'} Batch Top-up
-              </Button>
-            </div>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Save Preset Dialog */}
-      <Dialog open={savePresetDialogOpen} onOpenChange={setSavePresetDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Save Preset</DialogTitle>
-            <DialogDescription>
-              Save these batch top-up settings for future use
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>Preset Name *</Label>
-              <Input
-                placeholder="e.g., Youth Education Grant"
-                value={presetName}
-                onChange={(e) => setPresetName(e.target.value)}
-              />
-            </div>
-          </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setSavePresetDialogOpen(false)}>
+            <Button variant="outline" onClick={() => setBatchDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleSavePreset}>
-              Save Preset
+            <Button onClick={handleBatchTopUp}>
+              <Play className="h-4 w-4 mr-2" />
+              {batchScheduleTopUp ? 'Schedule' : 'Execute'} Batch Top-up
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -942,22 +964,46 @@ const TopUpManagementPage: React.FC = () => {
       <Dialog open={successDialogOpen} onOpenChange={setSuccessDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-success">
-              <Play className="h-5 w-5" />
-              {successResult?.scheduled ? 'Top-up Scheduled' : 'Top-up Successful'}
+            <DialogTitle className="flex items-center gap-2">
+              <div className="h-10 w-10 rounded-full bg-success/20 flex items-center justify-center">
+                <DollarSign className="h-5 w-5 text-success" />
+              </div>
+              Top-up {successResult?.scheduled ? 'Scheduled' : 'Successful'}
             </DialogTitle>
           </DialogHeader>
-          <div className="py-6 text-center">
-            <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-success/10 mb-4">
-              <TrendingUp className="h-8 w-8 text-success" />
+          
+          {successResult && (
+            <div className="py-4 space-y-4">
+              <div className="text-center">
+                <p className="text-3xl font-bold text-success">{formatCurrency(successResult.total)}</p>
+                <p className="text-muted-foreground">
+                  {successResult.scheduled ? 'Scheduled for' : 'Credited to'} {successResult.count} account(s)
+                </p>
+              </div>
+              
+              <div className="bg-secondary/50 rounded-lg p-4 space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Type</span>
+                  <span className="font-medium capitalize">{successResult.type}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Accounts</span>
+                  <span className="font-medium">{successResult.count}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Total Amount</span>
+                  <span className="font-medium">{formatCurrency(successResult.total)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Status</span>
+                  <Badge variant={successResult.scheduled ? 'warning' : 'success'}>
+                    {successResult.scheduled ? 'Scheduled' : 'Completed'}
+                  </Badge>
+                </div>
+              </div>
             </div>
-            <p className="text-lg font-semibold">
-              {formatCurrency(successResult?.total || 0)}
-            </p>
-            <p className="text-sm text-muted-foreground mt-1">
-              {successResult?.scheduled ? 'Scheduled for' : 'Processed for'} {successResult?.count} account(s)
-            </p>
-          </div>
+          )}
+
           <DialogFooter>
             <Button onClick={() => setSuccessDialogOpen(false)} className="w-full">
               Done
