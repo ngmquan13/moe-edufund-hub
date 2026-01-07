@@ -1,15 +1,16 @@
 import React, { useState, useRef } from 'react';
-import { Plus, Edit, Users, Search, X, Upload } from 'lucide-react';
+import { Plus, Edit, Users, Search, X, Upload, Download, DollarSign } from 'lucide-react';
 import { AdminLayout } from '@/components/layouts/AdminLayout';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Dialog,
   DialogContent,
@@ -44,9 +45,11 @@ import {
   getAccountHolders,
   getAccountHolder,
   addEnrolment,
-  removeEnrolment
+  removeEnrolment,
+  getTransactions,
+  getEducationAccount
 } from '@/lib/dataStore';
-import { formatCurrency, PaymentType, BillingCycle } from '@/lib/data';
+import { formatCurrency, formatDateTime, PaymentType, BillingCycle } from '@/lib/data';
 
 const BILLING_CYCLE_DURATIONS: Record<BillingCycle, number> = {
   monthly: 1,
@@ -65,6 +68,7 @@ const BILLING_CYCLE_LABELS: Record<BillingCycle, string> = {
 const CoursesPage: React.FC = () => {
   const courses = useDataStore(getCourses);
   const accountHolders = useDataStore(getAccountHolders);
+  const transactions = useDataStore(getTransactions);
   
   const [searchQuery, setSearchQuery] = useState('');
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -368,6 +372,20 @@ const CoursesPage: React.FC = () => {
     </>
   );
 
+  // Fee charges calculations
+  const charges = transactions.filter(t => t.type === 'charge' && t.status === 'completed');
+  const chargeSummary = {
+    count: charges.length,
+    total: Math.abs(charges.reduce((sum, t) => sum + t.amount, 0)),
+  };
+
+  const handleExport = (type: string) => {
+    toast({
+      title: "Export Started",
+      description: `Exporting ${type} report as CSV...`,
+    });
+  };
+
   return (
     <AdminLayout>
       <PageHeader 
@@ -462,7 +480,14 @@ const CoursesPage: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Courses Grid */}
+      <Tabs defaultValue="courses" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="courses">Course Management</TabsTrigger>
+          <TabsTrigger value="fees">Fee Charges Summary</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="courses">
+          {/* Courses Grid */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {filteredCourses.map((course) => {
           const enrolments = getEnrolmentsByCourse(course.id);
@@ -534,9 +559,85 @@ const CoursesPage: React.FC = () => {
         })}
       </div>
 
-      <p className="mt-6 text-sm text-muted-foreground text-center">
-        Showing {filteredCourses.length} of {courses.length} courses
-      </p>
+          <p className="mt-6 text-sm text-muted-foreground text-center">
+            Showing {filteredCourses.length} of {courses.length} courses
+          </p>
+        </TabsContent>
+
+        <TabsContent value="fees">
+          <div className="grid gap-6 md:grid-cols-2 mb-6">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg">Total Charges</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold text-primary">{chargeSummary.count}</p>
+                <p className="text-muted-foreground">fee charges</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg">Total Amount</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold text-warning">{formatCurrency(chargeSummary.total)}</p>
+                <p className="text-muted-foreground">charged for courses</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Charge Transactions</CardTitle>
+                <CardDescription>Detailed list of all fee charge transactions</CardDescription>
+              </div>
+              <Button variant="outline" onClick={() => handleExport('charges')}>
+                <Download className="h-4 w-4 mr-2" />
+                Export CSV
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Transaction ID</TableHead>
+                    <TableHead>Account</TableHead>
+                    <TableHead>Course / Period</TableHead>
+                    <TableHead className="text-right">Amount</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {charges.slice(0, 20).map(txn => {
+                    const account = getEducationAccount(txn.accountId);
+                    const holder = account ? getAccountHolder(account.holderId) : null;
+
+                    return (
+                      <TableRow key={txn.id}>
+                        <TableCell>{formatDateTime(txn.createdAt)}</TableCell>
+                        <TableCell className="font-mono text-sm">{txn.id}</TableCell>
+                        <TableCell>
+                          {holder ? `${holder.firstName} ${holder.lastName}` : txn.accountId}
+                        </TableCell>
+                        <TableCell>
+                          <span>{txn.description}</span>
+                          {txn.period && (
+                            <span className="block text-sm text-muted-foreground">{txn.period}</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right font-semibold text-destructive">
+                          {formatCurrency(txn.amount)}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       {/* Edit Dialog */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
