@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Play, Eye, Search, X, Calendar as CalendarIcon, Upload, TrendingUp, DollarSign, Clock, Download, Filter, Users, Hash, BarChart3 } from 'lucide-react';
+import { Play, Eye, Search, X, Calendar as CalendarIcon, Upload, TrendingUp, DollarSign, Clock, Download, Filter, Users, Hash, BarChart3, Edit, Trash2 } from 'lucide-react';
 import { AdminLayout } from '@/components/layouts/AdminLayout';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Button } from '@/components/ui/button';
@@ -560,6 +560,7 @@ const TopUpManagementPage: React.FC = () => {
                   <TableHead className="text-right">Total Amount</TableHead>
                   <TableHead>Scheduled Date</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -573,6 +574,23 @@ const TopUpManagementPage: React.FC = () => {
                     <TableCell>{formatDateTime(batch.createdAt)}</TableCell>
                     <TableCell>
                       <Badge variant="warning">Scheduled</Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <Button variant="ghost" size="sm" onClick={() => handleViewDetails(batch)}>
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => {
+                          toast({ title: "Edit Scheduled", description: "Edit functionality for scheduled batch top-ups." });
+                        }}>
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => {
+                          toast({ title: "Delete Scheduled", description: `Scheduled batch ${batch.id} would be deleted.`, variant: "destructive" });
+                        }}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -589,6 +607,23 @@ const TopUpManagementPage: React.FC = () => {
                       <TableCell>{formatDateTime(txn.createdAt)}</TableCell>
                       <TableCell>
                         <Badge variant="warning">Scheduled</Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <Button variant="ghost" size="sm" onClick={() => handleViewDetails(txn)}>
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={() => {
+                            toast({ title: "Edit Scheduled", description: "Edit functionality for scheduled individual top-ups." });
+                          }}>
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => {
+                            toast({ title: "Delete Scheduled", description: `Scheduled top-up ${txn.id} would be deleted.`, variant: "destructive" });
+                          }}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   );
@@ -1165,7 +1200,7 @@ const TopUpManagementPage: React.FC = () => {
 
       {/* Transaction Details Dialog */}
       <Dialog open={detailsDialogOpen} onOpenChange={setDetailsDialogOpen}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Top-up Details</DialogTitle>
           </DialogHeader>
@@ -1224,6 +1259,79 @@ const TopUpManagementPage: React.FC = () => {
                 <div>
                   <p className="text-sm text-muted-foreground">Created By</p>
                   <p className="font-medium">{selectedTransaction.createdBy}</p>
+                </div>
+              )}
+
+              {/* Configured Rules - For Batch Top-ups */}
+              {selectedTransaction.accountCount && (
+                <div className="border-t pt-4">
+                  <p className="text-sm font-medium mb-2">Configured Rules</p>
+                  <div className="bg-secondary/50 rounded-lg p-3 text-sm space-y-1">
+                    <p><span className="text-muted-foreground">Age Range:</span> All ages (no filter)</p>
+                    <p><span className="text-muted-foreground">Balance Range:</span> All balances (no filter)</p>
+                    <p><span className="text-muted-foreground">Schooling Status:</span> All statuses</p>
+                    <p><span className="text-muted-foreground">Amount Type:</span> Per Account</p>
+                    <p><span className="text-muted-foreground">Amount per Account:</span> {formatCurrency(selectedTransaction.totalAmount / selectedTransaction.accountCount)}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Accounts List - For Batch Top-ups */}
+              {selectedTransaction.accountCount && (
+                <div className="border-t pt-4">
+                  <p className="text-sm font-medium mb-2">Accounts Received ({selectedTransaction.accountCount})</p>
+                  <div className="border rounded-lg max-h-48 overflow-y-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Name</TableHead>
+                          <TableHead>Account ID</TableHead>
+                          <TableHead className="text-right">Amount Received</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {educationAccounts.slice(0, selectedTransaction.accountCount).map(account => {
+                          const holder = getAccountHolder(account.holderId);
+                          return (
+                            <TableRow key={account.id}>
+                              <TableCell className="font-medium">{holder?.firstName} {holder?.lastName}</TableCell>
+                              <TableCell className="font-mono text-sm">{account.id}</TableCell>
+                              <TableCell className="text-right text-success">
+                                +{formatCurrency(selectedTransaction.totalAmount / selectedTransaction.accountCount)}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+              )}
+
+              {/* Individual Top-up Account Info */}
+              {selectedTransaction.accountId && !selectedTransaction.accountCount && (
+                <div className="border-t pt-4">
+                  <p className="text-sm font-medium mb-2">Account Details</p>
+                  {(() => {
+                    const account = getEducationAccount(selectedTransaction.accountId);
+                    const holder = account ? getAccountHolder(account.holderId) : null;
+                    return account && holder ? (
+                      <div className="border rounded-lg p-3">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="font-medium">{holder.firstName} {holder.lastName}</p>
+                            <p className="text-sm text-muted-foreground">{account.id}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm text-muted-foreground">Amount Received</p>
+                            <p className="font-medium text-success">+{formatCurrency(selectedTransaction.amount)}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">Account details not available</p>
+                    );
+                  })()}
                 </div>
               )}
             </div>
