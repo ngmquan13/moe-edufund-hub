@@ -124,20 +124,21 @@ const CoursesPage: React.FC = () => {
   };
 
   const handleCreateCourse = () => {
-    if (!formCode || !formName || !formFee || !formStartDate || !formEndDate) {
+    if (!formCode || !formName || !formFee || !formDescription) {
       toast({
         title: "Validation Error",
-        description: "Please fill in all required fields including start and end dates.",
+        description: "Please fill in all required fields (Code, Name, Fee, Description).",
         variant: "destructive",
       });
       return;
     }
 
-    // Calculate duration in months from start and end date
-    const startDate = formStartDate;
-    const endDate = formEndDate;
-    const monthsDiff = (endDate.getFullYear() - startDate.getFullYear()) * 12 + (endDate.getMonth() - startDate.getMonth());
-    const durationMonths = Math.max(1, monthsDiff);
+    // Calculate duration in months from start and end date if provided
+    let durationMonths = 12; // Default to 12 months
+    if (formStartDate && formEndDate) {
+      const monthsDiff = (formEndDate.getFullYear() - formStartDate.getFullYear()) * 12 + (formEndDate.getMonth() - formStartDate.getMonth());
+      durationMonths = Math.max(1, monthsDiff);
+    }
 
     const newCourse = {
       id: `CRS${String(Date.now()).slice(-6)}`,
@@ -145,8 +146,8 @@ const CoursesPage: React.FC = () => {
       name: formName,
       monthlyFee: parseFloat(formFee),
       description: formDescription,
-      startDate: formStartDate.toISOString().split('T')[0],
-      endDate: formEndDate.toISOString().split('T')[0],
+      startDate: formStartDate ? formStartDate.toISOString().split('T')[0] : undefined,
+      endDate: formEndDate ? formEndDate.toISOString().split('T')[0] : undefined,
       isActive: formActive,
       paymentType: formPaymentType,
       billingCycle: formPaymentType === 'recurring' ? formBillingCycle : undefined,
@@ -179,12 +180,13 @@ const CoursesPage: React.FC = () => {
   };
 
   const handleUpdateCourse = () => {
-    if (!selectedCourse || !formCode || !formName || !formFee || !formStartDate || !formEndDate) return;
+    if (!selectedCourse || !formCode || !formName || !formFee || !formDescription) return;
 
-    const startDate = formStartDate;
-    const endDate = formEndDate;
-    const monthsDiff = (endDate.getFullYear() - startDate.getFullYear()) * 12 + (endDate.getMonth() - startDate.getMonth());
-    const durationMonths = Math.max(1, monthsDiff);
+    let durationMonths = selectedCourse.durationMonths || 12;
+    if (formStartDate && formEndDate) {
+      const monthsDiff = (formEndDate.getFullYear() - formStartDate.getFullYear()) * 12 + (formEndDate.getMonth() - formStartDate.getMonth());
+      durationMonths = Math.max(1, monthsDiff);
+    }
 
     updateCourse(selectedCourse.id, {
       code: formCode.toUpperCase(),
@@ -194,8 +196,8 @@ const CoursesPage: React.FC = () => {
       isActive: formActive,
       paymentType: formPaymentType,
       billingCycle: formPaymentType === 'recurring' ? formBillingCycle : undefined,
-      startDate: formStartDate.toISOString().split('T')[0],
-      endDate: formEndDate.toISOString().split('T')[0],
+      startDate: formStartDate ? formStartDate.toISOString().split('T')[0] : undefined,
+      endDate: formEndDate ? formEndDate.toISOString().split('T')[0] : undefined,
       durationMonths,
     });
 
@@ -316,10 +318,10 @@ const CoursesPage: React.FC = () => {
         />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="description">Description</Label>
+        <Label htmlFor="description">Description *</Label>
         <Textarea 
           id="description" 
-          placeholder="Brief description of the course"
+          placeholder="Brief description of the course (required)"
           value={formDescription}
           onChange={(e) => setFormDescription(e.target.value)}
         />
@@ -356,10 +358,10 @@ const CoursesPage: React.FC = () => {
         </div>
       )}
 
-      {/* Start Date and End Date */}
+      {/* Start Date and End Date (Optional) */}
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label>Start Date *</Label>
+          <Label>Start Date</Label>
           <Popover>
             <PopoverTrigger asChild>
               <Button
@@ -370,7 +372,7 @@ const CoursesPage: React.FC = () => {
                 )}
               >
                 <CalendarIcon className="mr-2 h-4 w-4" />
-                {formStartDate ? format(formStartDate, "PPP") : "Pick start date"}
+                {formStartDate ? format(formStartDate, "PPP") : "Pick start date (optional)"}
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="start">
@@ -385,7 +387,7 @@ const CoursesPage: React.FC = () => {
           </Popover>
         </div>
         <div className="space-y-2">
-          <Label>End Date *</Label>
+          <Label>End Date</Label>
           <Popover>
             <PopoverTrigger asChild>
               <Button
@@ -396,7 +398,7 @@ const CoursesPage: React.FC = () => {
                 )}
               >
                 <CalendarIcon className="mr-2 h-4 w-4" />
-                {formEndDate ? format(formEndDate, "PPP") : "Pick end date"}
+                {formEndDate ? format(formEndDate, "PPP") : "Pick end date (optional)"}
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="start">

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, User, Wallet, Calendar, Phone, Mail, MapPin, CreditCard, XCircle, Clock, TrendingUp, TrendingDown, Filter, BookOpen, DollarSign } from 'lucide-react';
+import { ArrowLeft, User, Wallet, Calendar, Phone, Mail, MapPin, CreditCard, XCircle, Clock, TrendingUp, TrendingDown, Filter, BookOpen, DollarSign, CheckCircle } from 'lucide-react';
+import { updateEducationAccount } from '@/lib/dataStore';
 import { AdminLayout } from '@/components/layouts/AdminLayout';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { StatCard } from '@/components/shared/StatCard';
@@ -61,10 +62,19 @@ const AccountDetailPage: React.FC = () => {
   }
 
   const handleSuspend = () => {
+    updateEducationAccount(account.id, { status: 'suspended' });
     toast({
       title: "Account Suspended",
       description: `Account ${account.id} has been suspended.`,
       variant: "destructive"
+    });
+  };
+
+  const handleReactivate = () => {
+    updateEducationAccount(account.id, { status: 'active' });
+    toast({
+      title: "Account Reactivated",
+      description: `Account ${account.id} has been reactivated.`,
     });
   };
 
@@ -124,6 +134,12 @@ const AccountDetailPage: React.FC = () => {
           <Button variant="destructive" onClick={handleSuspend}>
             <XCircle className="h-4 w-4 mr-2" />
             Suspend
+          </Button>
+        )}
+        {account.status === 'suspended' && (
+          <Button variant="default" onClick={handleReactivate}>
+            <CheckCircle className="h-4 w-4 mr-2" />
+            Re-activate
           </Button>
         )}
       </PageHeader>
