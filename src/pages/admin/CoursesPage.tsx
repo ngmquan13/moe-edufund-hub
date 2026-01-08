@@ -358,7 +358,7 @@ const CoursesPage: React.FC = () => {
         </div>
       )}
 
-      {/* Start Date and End Date (Optional) */}
+      {/* Start Date and End Date */}
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Start Date</Label>
@@ -372,7 +372,7 @@ const CoursesPage: React.FC = () => {
                 )}
               >
                 <CalendarIcon className="mr-2 h-4 w-4" />
-                {formStartDate ? format(formStartDate, "PPP") : "Pick start date (optional)"}
+                {formStartDate ? format(formStartDate, "PPP") : "Pick start date"}
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="start">
@@ -398,7 +398,7 @@ const CoursesPage: React.FC = () => {
                 )}
               >
                 <CalendarIcon className="mr-2 h-4 w-4" />
-                {formEndDate ? format(formEndDate, "PPP") : "Pick end date (optional)"}
+                {formEndDate ? format(formEndDate, "PPP") : "Pick end date"}
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="start">

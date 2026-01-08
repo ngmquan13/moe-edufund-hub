@@ -74,6 +74,12 @@ const TopUpManagementPage: React.FC = () => {
   const [dateFrom, setDateFrom] = useState<Date | undefined>();
   const [dateTo, setDateTo] = useState<Date | undefined>();
   
+  // Pagination states
+  const [individualPage, setIndividualPage] = useState(1);
+  const [individualPageSize, setIndividualPageSize] = useState(10);
+  const [batchPage, setBatchPage] = useState(1);
+  const [batchPageSize, setBatchPageSize] = useState(10);
+  
   // Individual top-up states
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
@@ -737,88 +743,162 @@ const TopUpManagementPage: React.FC = () => {
             </TabsList>
 
             <TabsContent value="individual">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Transaction ID</TableHead>
-                    <TableHead>Account</TableHead>
-                    <TableHead>Description</TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {getFilteredTransactions('individual').slice(0, 20).map(txn => {
-                    const account = getEducationAccount(txn.accountId);
-                    const holder = account ? getAccountHolder(account.holderId) : null;
+              {(() => {
+                const allIndividual = getFilteredTransactions('individual');
+                const totalPages = Math.ceil(allIndividual.length / individualPageSize);
+                const paginatedData = allIndividual.slice((individualPage - 1) * individualPageSize, individualPage * individualPageSize);
+                
+                return (
+                  <>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Date</TableHead>
+                          <TableHead>Transaction ID</TableHead>
+                          <TableHead>Account</TableHead>
+                          <TableHead>Description</TableHead>
+                          <TableHead className="text-right">Amount</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead></TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {paginatedData.map(txn => {
+                          const account = getEducationAccount(txn.accountId);
+                          const holder = account ? getAccountHolder(account.holderId) : null;
 
-                    return (
-                      <TableRow key={txn.id}>
-                        <TableCell>{formatDateTime(txn.createdAt)}</TableCell>
-                        <TableCell className="font-mono text-sm">{txn.id}</TableCell>
-                        <TableCell>
-                          {holder ? `${holder.firstName} ${holder.lastName}` : txn.accountId}
-                        </TableCell>
-                        <TableCell>{txn.description}</TableCell>
-                        <TableCell className="text-right font-semibold text-success">
-                          +{formatCurrency(txn.amount)}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={txn.status === 'completed' ? 'success' : txn.status === 'pending' ? 'warning' : 'destructive'}>
-                            {txn.status === 'pending' ? 'Scheduled' : txn.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Button variant="ghost" size="sm" onClick={() => handleViewDetails(txn)}>
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
+                          return (
+                            <TableRow key={txn.id}>
+                              <TableCell>{formatDateTime(txn.createdAt)}</TableCell>
+                              <TableCell className="font-mono text-sm">{txn.id}</TableCell>
+                              <TableCell>
+                                {holder ? `${holder.firstName} ${holder.lastName}` : txn.accountId}
+                              </TableCell>
+                              <TableCell>{txn.description}</TableCell>
+                              <TableCell className="text-right font-semibold text-success">
+                                +{formatCurrency(txn.amount)}
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant={txn.status === 'completed' ? 'success' : txn.status === 'pending' ? 'warning' : 'destructive'}>
+                                  {txn.status === 'pending' ? 'Scheduled' : txn.status}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>
+                                <Button variant="ghost" size="sm" onClick={() => handleViewDetails(txn)}>
+                                  <Eye className="h-4 w-4" />
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                    {/* Pagination */}
+                    <div className="flex items-center justify-between mt-4">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-muted-foreground">Rows per page:</span>
+                        <Select value={individualPageSize.toString()} onValueChange={(v) => { setIndividualPageSize(Number(v)); setIndividualPage(1); }}>
+                          <SelectTrigger className="w-[70px]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="10">10</SelectItem>
+                            <SelectItem value="30">30</SelectItem>
+                            <SelectItem value="50">50</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-muted-foreground">
+                          Page {individualPage} of {totalPages || 1} ({allIndividual.length} records)
+                        </span>
+                        <Button variant="outline" size="sm" disabled={individualPage <= 1} onClick={() => setIndividualPage(p => p - 1)}>
+                          Previous
+                        </Button>
+                        <Button variant="outline" size="sm" disabled={individualPage >= totalPages} onClick={() => setIndividualPage(p => p + 1)}>
+                          Next
+                        </Button>
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
             </TabsContent>
 
             <TabsContent value="batch">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Batch ID</TableHead>
-                    <TableHead>Description</TableHead>
-                    <TableHead>Accounts</TableHead>
-                    <TableHead className="text-right">Total Amount</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {topUpBatches.map(batch => (
-                    <TableRow key={batch.id}>
-                      <TableCell>{formatDateTime(batch.createdAt)}</TableCell>
-                      <TableCell className="font-mono text-sm">{batch.id}</TableCell>
-                      <TableCell>{batch.description}</TableCell>
-                      <TableCell>{batch.accountCount}</TableCell>
-                      <TableCell className="text-right font-semibold text-success">
-                        +{formatCurrency(batch.totalAmount)}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={batch.status === 'completed' ? 'success' : batch.status === 'pending' ? 'warning' : 'destructive'}>
-                          {batch.status === 'pending' ? 'Scheduled' : batch.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Button variant="ghost" size="sm" onClick={() => handleViewDetails(batch)}>
-                          <Eye className="h-4 w-4" />
+              {(() => {
+                const allBatches = topUpBatches;
+                const totalPages = Math.ceil(allBatches.length / batchPageSize);
+                const paginatedData = allBatches.slice((batchPage - 1) * batchPageSize, batchPage * batchPageSize);
+                
+                return (
+                  <>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Date</TableHead>
+                          <TableHead>Batch ID</TableHead>
+                          <TableHead>Description</TableHead>
+                          <TableHead>Accounts</TableHead>
+                          <TableHead className="text-right">Total Amount</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead></TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {paginatedData.map(batch => (
+                          <TableRow key={batch.id}>
+                            <TableCell>{formatDateTime(batch.createdAt)}</TableCell>
+                            <TableCell className="font-mono text-sm">{batch.id}</TableCell>
+                            <TableCell>{batch.description}</TableCell>
+                            <TableCell>{batch.accountCount}</TableCell>
+                            <TableCell className="text-right font-semibold text-success">
+                              +{formatCurrency(batch.totalAmount)}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant={batch.status === 'completed' ? 'success' : batch.status === 'pending' ? 'warning' : 'destructive'}>
+                                {batch.status === 'pending' ? 'Scheduled' : batch.status}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <Button variant="ghost" size="sm" onClick={() => handleViewDetails(batch)}>
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                    {/* Pagination */}
+                    <div className="flex items-center justify-between mt-4">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-muted-foreground">Rows per page:</span>
+                        <Select value={batchPageSize.toString()} onValueChange={(v) => { setBatchPageSize(Number(v)); setBatchPage(1); }}>
+                          <SelectTrigger className="w-[70px]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="10">10</SelectItem>
+                            <SelectItem value="30">30</SelectItem>
+                            <SelectItem value="50">50</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-muted-foreground">
+                          Page {batchPage} of {totalPages || 1} ({allBatches.length} records)
+                        </span>
+                        <Button variant="outline" size="sm" disabled={batchPage <= 1} onClick={() => setBatchPage(p => p - 1)}>
+                          Previous
                         </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                        <Button variant="outline" size="sm" disabled={batchPage >= totalPages} onClick={() => setBatchPage(p => p + 1)}>
+                          Next
+                        </Button>
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
             </TabsContent>
           </Tabs>
         </CardContent>
@@ -1284,16 +1364,19 @@ const TopUpManagementPage: React.FC = () => {
                     <Table>
                       <TableHeader>
                         <TableRow>
+                          <TableHead>Transaction ID</TableHead>
                           <TableHead>Name</TableHead>
                           <TableHead>Account ID</TableHead>
                           <TableHead className="text-right">Amount Received</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {educationAccounts.slice(0, selectedTransaction.accountCount).map(account => {
+                        {educationAccounts.slice(0, selectedTransaction.accountCount).map((account, idx) => {
                           const holder = getAccountHolder(account.holderId);
+                          const txnId = `TXN${selectedTransaction.id.slice(-6)}${String(idx + 1).padStart(3, '0')}`;
                           return (
                             <TableRow key={account.id}>
+                              <TableCell className="font-mono text-sm">{txnId}</TableCell>
                               <TableCell className="font-medium">{holder?.firstName} {holder?.lastName}</TableCell>
                               <TableCell className="font-mono text-sm">{account.id}</TableCell>
                               <TableCell className="text-right text-success">
