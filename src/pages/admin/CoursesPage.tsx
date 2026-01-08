@@ -326,6 +326,63 @@ const CoursesPage: React.FC = () => {
           onChange={(e) => setFormDescription(e.target.value)}
         />
       </div>
+
+      {/* Start Date and End Date - Moved above Payment Type */}
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label>Start Date</Label>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className={cn(
+                  "w-full justify-start text-left font-normal",
+                  !formStartDate && "text-muted-foreground"
+                )}
+              >
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {formStartDate ? format(formStartDate, "PPP") : "Pick start date"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="end" side="bottom">
+              <Calendar
+                mode="single"
+                selected={formStartDate}
+                onSelect={setFormStartDate}
+                initialFocus
+                className="p-3 pointer-events-auto"
+              />
+            </PopoverContent>
+          </Popover>
+        </div>
+        <div className="space-y-2">
+          <Label>End Date</Label>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className={cn(
+                  "w-full justify-start text-left font-normal",
+                  !formEndDate && "text-muted-foreground"
+                )}
+              >
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {formEndDate ? format(formEndDate, "PPP") : "Pick end date"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="end" side="bottom">
+              <Calendar
+                mode="single"
+                selected={formEndDate}
+                onSelect={setFormEndDate}
+                disabled={(date) => formStartDate ? date < formStartDate : false}
+                initialFocus
+                className="p-3 pointer-events-auto"
+              />
+            </PopoverContent>
+          </Popover>
+        </div>
+      </div>
       
       {/* Payment Type */}
       <div className="space-y-2">
@@ -357,63 +414,6 @@ const CoursesPage: React.FC = () => {
           </Select>
         </div>
       )}
-
-      {/* Start Date and End Date */}
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label>Start Date</Label>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                className={cn(
-                  "w-full justify-start text-left font-normal",
-                  !formStartDate && "text-muted-foreground"
-                )}
-              >
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {formStartDate ? format(formStartDate, "PPP") : "Pick start date"}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar
-                mode="single"
-                selected={formStartDate}
-                onSelect={setFormStartDate}
-                initialFocus
-                className="p-3 pointer-events-auto"
-              />
-            </PopoverContent>
-          </Popover>
-        </div>
-        <div className="space-y-2">
-          <Label>End Date</Label>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                className={cn(
-                  "w-full justify-start text-left font-normal",
-                  !formEndDate && "text-muted-foreground"
-                )}
-              >
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {formEndDate ? format(formEndDate, "PPP") : "Pick end date"}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar
-                mode="single"
-                selected={formEndDate}
-                onSelect={setFormEndDate}
-                disabled={(date) => formStartDate ? date < formStartDate : false}
-                initialFocus
-                className="p-3 pointer-events-auto"
-              />
-            </PopoverContent>
-          </Popover>
-        </div>
-      </div>
 
       <div className="flex items-center justify-between">
         <Label htmlFor="active">Active</Label>

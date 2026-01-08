@@ -586,11 +586,6 @@ const TopUpManagementPage: React.FC = () => {
                         <Button variant="ghost" size="sm" onClick={() => handleViewDetails(batch)}>
                           <Eye className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="sm" onClick={() => {
-                          toast({ title: "Edit Scheduled", description: "Edit functionality for scheduled batch top-ups." });
-                        }}>
-                          <Edit className="h-4 w-4" />
-                        </Button>
                         <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => {
                           toast({ title: "Delete Scheduled", description: `Scheduled batch ${batch.id} would be deleted.`, variant: "destructive" });
                         }}>
@@ -618,11 +613,6 @@ const TopUpManagementPage: React.FC = () => {
                         <div className="flex items-center justify-end gap-1">
                           <Button variant="ghost" size="sm" onClick={() => handleViewDetails(txn)}>
                             <Eye className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="sm" onClick={() => {
-                            toast({ title: "Edit Scheduled", description: "Edit functionality for scheduled individual top-ups." });
-                          }}>
-                            <Edit className="h-4 w-4" />
                           </Button>
                           <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => {
                             toast({ title: "Delete Scheduled", description: `Scheduled top-up ${txn.id} would be deleted.`, variant: "destructive" });
@@ -1359,24 +1349,21 @@ const TopUpManagementPage: React.FC = () => {
               {/* Accounts List - For Batch Top-ups */}
               {selectedTransaction.accountCount && (
                 <div className="border-t pt-4">
-                  <p className="text-sm font-medium mb-2">Accounts Received ({selectedTransaction.accountCount})</p>
+                  <p className="text-sm font-medium mb-2">Accounts to Receive ({selectedTransaction.accountCount})</p>
                   <div className="border rounded-lg max-h-48 overflow-y-auto">
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Transaction ID</TableHead>
                           <TableHead>Name</TableHead>
                           <TableHead>Account ID</TableHead>
-                          <TableHead className="text-right">Amount Received</TableHead>
+                          <TableHead className="text-right">Amount to Receive</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {educationAccounts.slice(0, selectedTransaction.accountCount).map((account, idx) => {
+                        {educationAccounts.slice(0, selectedTransaction.accountCount).map((account) => {
                           const holder = getAccountHolder(account.holderId);
-                          const txnId = `TXN${selectedTransaction.id.slice(-6)}${String(idx + 1).padStart(3, '0')}`;
                           return (
                             <TableRow key={account.id}>
-                              <TableCell className="font-mono text-sm">{txnId}</TableCell>
                               <TableCell className="font-medium">{holder?.firstName} {holder?.lastName}</TableCell>
                               <TableCell className="font-mono text-sm">{account.id}</TableCell>
                               <TableCell className="text-right text-success">
@@ -1419,7 +1406,24 @@ const TopUpManagementPage: React.FC = () => {
               )}
             </div>
           )}
-          <DialogFooter>
+          <DialogFooter className="gap-2">
+            {selectedTransaction?.status === 'pending' && selectedTransaction?.accountCount && (
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  // Pre-fill batch form with scheduled data and open batch dialog
+                  setBatchAmount(String(selectedTransaction.totalAmount / selectedTransaction.accountCount));
+                  setBatchAmountType('per_account');
+                  setBatchReason(selectedTransaction.description || '');
+                  setBatchScheduleTopUp(true);
+                  setDetailsDialogOpen(false);
+                  setBatchDialogOpen(true);
+                }}
+              >
+                <Edit className="h-4 w-4 mr-2" />
+                Edit Schedule
+              </Button>
+            )}
             <Button onClick={() => setDetailsDialogOpen(false)}>Close</Button>
           </DialogFooter>
         </DialogContent>
