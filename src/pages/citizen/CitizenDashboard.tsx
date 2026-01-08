@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Wallet, TrendingUp, CreditCard, ArrowRight, Receipt, Clock, BookOpen, Calendar, Users, DollarSign, AlertCircle } from 'lucide-react';
+import { Wallet, TrendingUp, CreditCard, ArrowRight, Receipt, Clock, BookOpen, Calendar, DollarSign } from 'lucide-react';
 import { CitizenLayout } from '@/components/layouts/CitizenLayout';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -36,6 +36,12 @@ const CitizenDashboard: React.FC = () => {
   const enrolments = citizenUser ? getEnrolmentsByHolder(citizenUser.id) : [];
   const activeEnrolments = enrolments.filter(e => e.isActive);
   const totalOutstanding = outstandingCharges.filter(c => c.status === 'unpaid').reduce((sum, c) => sum + c.amount, 0);
+  
+  // Count paid courses
+  const paidCoursesCount = activeEnrolments.filter(enrolment => {
+    const hasUnpaidCharge = outstandingCharges.some(c => c.courseId === enrolment.courseId && c.status === 'unpaid');
+    return !hasUnpaidCharge;
+  }).length;
 
   if (!account) {
     return (
@@ -59,8 +65,8 @@ const CitizenDashboard: React.FC = () => {
         </p>
       </div>
 
-      {/* Top Section: Stats Overview */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6 animate-slide-up">
+      {/* Top Section: Stats Overview - 3 Cards */}
+      <div className="grid gap-4 md:grid-cols-3 mb-6 animate-slide-up">
         {/* Current Balance Card */}
         <Card className="bg-gradient-to-br from-primary to-primary/80 text-primary-foreground">
           <CardContent className="pt-6">
@@ -77,32 +83,38 @@ const CitizenDashboard: React.FC = () => {
           </CardContent>
         </Card>
 
-        {/* Outstanding Fees Card */}
+        {/* Pending Fees Card */}
         <Card className={totalOutstanding > 0 ? "border-warning bg-warning/5" : ""}>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3 mb-2">
               <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${totalOutstanding > 0 ? 'bg-warning/10' : 'bg-success/10'}`}>
-                {totalOutstanding > 0 ? (
-                  <AlertCircle className="h-5 w-5 text-warning" />
-                ) : (
-                  <DollarSign className="h-5 w-5 text-success" />
-                )}
+                <DollarSign className={`h-5 w-5 ${totalOutstanding > 0 ? 'text-warning' : 'text-success'}`} />
               </div>
-              <p className="text-sm text-muted-foreground">Outstanding Fees</p>
+              <p className="text-sm text-muted-foreground">Pending Fees</p>
             </div>
             <p className={`text-3xl font-bold ${totalOutstanding > 0 ? 'text-warning' : 'text-success'}`}>
               {formatCurrency(totalOutstanding)}
             </p>
-            <p className="text-xs mt-2 text-muted-foreground">
-              {totalOutstanding > 0 
-                ? `${outstandingCharges.filter(c => c.status === 'unpaid').length} pending payment(s)`
-                : 'All fees paid'
-              }
-            </p>
+            <div className="flex items-center justify-between mt-2">
+              <p className="text-xs text-muted-foreground">
+                {totalOutstanding > 0 
+                  ? `${outstandingCharges.filter(c => c.status === 'unpaid').length} pending`
+                  : 'All fees paid'
+                }
+              </p>
+              {totalOutstanding > 0 && (
+                <Button size="sm" variant="outline" asChild className="h-7 text-xs">
+                  <Link to="/portal/courses">
+                    <CreditCard className="h-3 w-3 mr-1" />
+                    Pay
+                  </Link>
+                </Button>
+              )}
+            </div>
           </CardContent>
         </Card>
 
-        {/* Active Courses Card */}
+        {/* Enrolled Courses Card */}
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3 mb-2">
@@ -113,58 +125,11 @@ const CitizenDashboard: React.FC = () => {
             </div>
             <p className="text-3xl font-bold">{activeEnrolments.length}</p>
             <p className="text-xs mt-2 text-muted-foreground">
-              {enrolments.length - activeEnrolments.length} completed
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Account Status Card */}
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-secondary">
-                <Users className="h-5 w-5 text-secondary-foreground" />
-              </div>
-              <p className="text-sm text-muted-foreground">Account Status</p>
-            </div>
-            <div className="flex items-center gap-2 mt-1">
-              <Badge variant={account.status === 'active' ? 'success' : 'warning'} className="text-sm px-3 py-1">
-                {account.status.charAt(0).toUpperCase() + account.status.slice(1)}
-              </Badge>
-            </div>
-            <p className="text-xs mt-2 text-muted-foreground">
-              Opened: {formatDate(account.openedAt)}
+              {paidCoursesCount} paid
             </p>
           </CardContent>
         </Card>
       </div>
-
-      {/* Pay Now Section - Only show if there are outstanding charges */}
-      {totalOutstanding > 0 && (
-        <Card className="mb-6 border-warning bg-gradient-to-r from-warning/10 to-warning/5 animate-slide-up" style={{ animationDelay: '0.05s' }}>
-          <CardContent className="py-4">
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-warning/20">
-                  <AlertCircle className="h-6 w-6 text-warning" />
-                </div>
-                <div>
-                  <p className="font-semibold">You have outstanding fees</p>
-                  <p className="text-sm text-muted-foreground">
-                    Total amount due: <span className="font-bold text-warning">{formatCurrency(totalOutstanding)}</span>
-                  </p>
-                </div>
-              </div>
-              <Button size="lg" asChild>
-                <Link to="/portal/courses">
-                  <CreditCard className="h-5 w-5 mr-2" />
-                  Pay Now
-                </Link>
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       {/* Middle Section: Active Courses Table */}
       <Card className="mb-6 animate-slide-up" style={{ animationDelay: '0.1s' }}>
@@ -218,7 +183,7 @@ const CitizenDashboard: React.FC = () => {
                       </TableCell>
                       <TableCell className="text-right">
                         {hasCharge ? (
-                          <Badge variant="warning">Pending Payment</Badge>
+                          <Badge variant="warning">Pending</Badge>
                         ) : (
                           <Badge variant="success">Paid</Badge>
                         )}
