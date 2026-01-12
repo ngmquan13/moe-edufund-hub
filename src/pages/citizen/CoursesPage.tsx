@@ -49,12 +49,11 @@ import { toast } from '@/hooks/use-toast';
 type PaymentMethod = 'balance' | 'online' | 'combined';
 
 const CoursesPage: React.FC = () => {
-  const { user } = useAuth();
+  const { citizenUser } = useAuth();
   
-  // Demo fallback - in production this would be fetched based on auth user
-  const educationAccount = user ? getEducationAccountByHolder('AH001') : null;
+  const educationAccount = citizenUser ? getEducationAccountByHolder(citizenUser.id) : null;
   const outstandingCharges = educationAccount ? getOutstandingChargesByAccount(educationAccount.id) : [];
-  const enrolments = getEnrolmentsByHolder('AH001');
+  const enrolments = citizenUser ? getEnrolmentsByHolder(citizenUser.id) : [];
   
   // Force re-render when data changes
   useDataStore(() => educationAccount);

@@ -20,11 +20,10 @@ import {
 } from '@/lib/data';
 
 const TransactionsPage: React.FC = () => {
-  const { user } = useAuth();
+  const { citizenUser } = useAuth();
   const [typeFilter, setTypeFilter] = useState<string>('all');
   
-  // Demo fallback - in production this would be fetched based on auth user
-  const account = user ? getEducationAccount('EA001') : null;
+  const account = citizenUser ? getEducationAccount(citizenUser.accountId) : null;
   const allTransactions = account ? getTransactionsByAccount(account.id) : [];
   
   // Sort transactions by newest first

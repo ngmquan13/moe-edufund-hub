@@ -85,10 +85,11 @@ const AccountDetailPage: React.FC = () => {
     });
   };
 
-  // Helper function to display NRIC (always masked - full NRIC only accessible via secure API)
+  // Helper function to mask/display NRIC
   const displayNric = () => {
-    // NRIC is always masked client-side for security
-    return holder.nricMasked || 'N/A';
+    if (!holder.nric || holder.nric.length < 4) return 'N/A';
+    if (showFullNric) return holder.nric;
+    return '****' + holder.nric.slice(-4);
   };
 
   // Calculate financial statistics
@@ -223,7 +224,18 @@ const AccountDetailPage: React.FC = () => {
                   <p className="text-sm font-medium">NRIC</p>
                   <div className="flex items-center gap-2">
                     <p className="text-sm text-muted-foreground font-mono">{displayNric()}</p>
-                    <span className="text-xs text-muted-foreground">(masked for security)</span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6"
+                      onClick={() => setShowFullNric(!showFullNric)}
+                    >
+                      {showFullNric ? (
+                        <EyeOff className="h-3 w-3" />
+                      ) : (
+                        <Eye className="h-3 w-3" />
+                      )}
+                    </Button>
                   </div>
                 </div>
               </div>

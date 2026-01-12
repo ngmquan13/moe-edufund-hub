@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { GraduationCap, Shield, ArrowRight, User, Lock, AlertCircle, Loader2, UserPlus } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { GraduationCap, Shield, ArrowRight, User, Lock, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,85 +11,37 @@ import { useAuth } from '@/contexts/AuthContext';
 
 const LandingPage: React.FC = () => {
   const navigate = useNavigate();
-  const { signIn, signUp, loading: authLoading } = useAuth();
+  const { loginAsAdmin, loginAsCitizen } = useAuth();
   
-  // Login state
-  const [loginEmail, setLoginEmail] = useState('');
-  const [loginPassword, setLoginPassword] = useState('');
-  const [loginError, setLoginError] = useState('');
-  const [loginLoading, setLoginLoading] = useState(false);
+  const [adminEmail, setAdminEmail] = useState('admin@moe.gov.sg');
+  const [adminPassword, setAdminPassword] = useState('demo123');
+  const [adminError, setAdminError] = useState('');
   
-  // Signup state
-  const [signupEmail, setSignupEmail] = useState('');
-  const [signupPassword, setSignupPassword] = useState('');
-  const [signupConfirmPassword, setSignupConfirmPassword] = useState('');
-  const [signupError, setSignupError] = useState('');
-  const [signupSuccess, setSignupSuccess] = useState('');
-  const [signupLoading, setSignupLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState('login');
+  const [citizenEmail, setCitizenEmail] = useState('weiming.tan@email.com');
+  const [citizenPassword, setCitizenPassword] = useState('demo123');
+  const [citizenError, setCitizenError] = useState('');
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleAdminLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    setLoginError('');
-    setLoginLoading(true);
+    setAdminError('');
     
-    try {
-      const result = await signIn(loginEmail, loginPassword);
-      
-      if (result.success && result.portal) {
-        navigate(result.portal === 'admin' ? '/admin' : '/portal');
-      } else {
-        setLoginError(result.error || 'Login failed');
-      }
-    } finally {
-      setLoginLoading(false);
+    if (loginAsAdmin(adminEmail, adminPassword)) {
+      navigate('/admin');
+    } else {
+      setAdminError('Invalid credentials. Use any email ending with @moe.gov.sg');
     }
   };
 
-  const handleSignup = async (e: React.FormEvent) => {
+  const handleCitizenLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    setSignupError('');
-    setSignupSuccess('');
+    setCitizenError('');
     
-    // Validate password
-    if (signupPassword.length < 6) {
-      setSignupError('Password must be at least 6 characters');
-      return;
-    }
-    
-    if (signupPassword !== signupConfirmPassword) {
-      setSignupError('Passwords do not match');
-      return;
-    }
-    
-    setSignupLoading(true);
-    
-    try {
-      // Default to citizen role for self-registration
-      const result = await signUp(signupEmail, signupPassword, 'citizen');
-      
-      if (result.success) {
-        setSignupSuccess('Account created successfully! You can now log in.');
-        setSignupEmail('');
-        setSignupPassword('');
-        setSignupConfirmPassword('');
-        // Switch to login tab after successful signup
-        setTimeout(() => setActiveTab('login'), 2000);
-      } else {
-        setSignupError(result.error || 'Sign up failed');
-      }
-    } finally {
-      setSignupLoading(false);
+    if (loginAsCitizen(citizenEmail, citizenPassword)) {
+      navigate('/portal');
+    } else {
+      setCitizenError('Account not found. Try: weiming.tan@email.com');
     }
   };
-
-  if (authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -144,157 +96,118 @@ const LandingPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Right: Auth Tabs */}
+          {/* Right: Login Tabs */}
           <div className="flex items-center justify-center animate-slide-up">
             <Card className="w-full max-w-md shadow-lg">
-              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <Tabs defaultValue="citizen" className="w-full">
                 <CardHeader className="pb-4">
                   <TabsList className="grid w-full grid-cols-2">
-                    <TabsTrigger value="login" className="gap-2">
+                    <TabsTrigger value="citizen" className="gap-2">
                       <User className="h-4 w-4" />
-                      Log In
+                      Account Holder
                     </TabsTrigger>
-                    <TabsTrigger value="signup" className="gap-2">
-                      <UserPlus className="h-4 w-4" />
-                      Sign Up
+                    <TabsTrigger value="admin" className="gap-2">
+                      <Shield className="h-4 w-4" />
+                      Admin
                     </TabsTrigger>
                   </TabsList>
                 </CardHeader>
 
-                {/* Login Tab */}
-                <TabsContent value="login">
-                  <form onSubmit={handleLogin}>
+                {/* Citizen Login */}
+                <TabsContent value="citizen">
+                  <form onSubmit={handleCitizenLogin}>
                     <CardContent className="space-y-4">
                       <CardTitle className="text-xl">Welcome back</CardTitle>
                       <CardDescription>
-                        Log in to access your Education Account
+                        Log in to view your Education Account balance and transactions
                       </CardDescription>
                       
-                      {loginError && (
+                      {citizenError && (
                         <Alert variant="destructive">
                           <AlertCircle className="h-4 w-4" />
-                          <AlertDescription>{loginError}</AlertDescription>
+                          <AlertDescription>{citizenError}</AlertDescription>
                         </Alert>
                       )}
                       
                       <div className="space-y-2">
-                        <Label htmlFor="login-email">Email</Label>
+                        <Label htmlFor="citizen-email">Email</Label>
                         <Input 
-                          id="login-email"
+                          id="citizen-email"
                           type="email"
                           placeholder="your.email@example.com"
-                          value={loginEmail}
-                          onChange={(e) => setLoginEmail(e.target.value)}
+                          value={citizenEmail}
+                          onChange={(e) => setCitizenEmail(e.target.value)}
                           required
-                          disabled={loginLoading}
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="login-password">Password</Label>
+                        <Label htmlFor="citizen-password">Password</Label>
                         <Input 
-                          id="login-password"
+                          id="citizen-password"
                           type="password"
                           placeholder="••••••••"
-                          value={loginPassword}
-                          onChange={(e) => setLoginPassword(e.target.value)}
+                          value={citizenPassword}
+                          onChange={(e) => setCitizenPassword(e.target.value)}
                           required
-                          disabled={loginLoading}
                         />
                       </div>
                     </CardContent>
                     <CardFooter className="flex flex-col gap-4">
-                      <Button type="submit" className="w-full" size="lg" disabled={loginLoading}>
-                        {loginLoading ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Logging in...
-                          </>
-                        ) : (
-                          <>
-                            Log in <ArrowRight className="ml-2 h-4 w-4" />
-                          </>
-                        )}
+                      <Button type="submit" className="w-full" size="lg">
+                        Log in <ArrowRight className="ml-2 h-4 w-4" />
                       </Button>
+                      <p className="text-xs text-center text-muted-foreground">
+                        Demo: Use <code className="bg-muted px-1 rounded">weiming.tan@email.com</code>
+                      </p>
                     </CardFooter>
                   </form>
                 </TabsContent>
 
-                {/* Signup Tab */}
-                <TabsContent value="signup">
-                  <form onSubmit={handleSignup}>
+                {/* Admin Login */}
+                <TabsContent value="admin">
+                  <form onSubmit={handleAdminLogin}>
                     <CardContent className="space-y-4">
-                      <CardTitle className="text-xl">Create Account</CardTitle>
+                      <CardTitle className="text-xl">Admin Portal</CardTitle>
                       <CardDescription>
-                        Sign up for an Education Account
+                        Ministry of Education staff login
                       </CardDescription>
                       
-                      {signupError && (
+                      {adminError && (
                         <Alert variant="destructive">
                           <AlertCircle className="h-4 w-4" />
-                          <AlertDescription>{signupError}</AlertDescription>
-                        </Alert>
-                      )}
-                      
-                      {signupSuccess && (
-                        <Alert className="border-success bg-success/10">
-                          <AlertDescription className="text-success">{signupSuccess}</AlertDescription>
+                          <AlertDescription>{adminError}</AlertDescription>
                         </Alert>
                       )}
                       
                       <div className="space-y-2">
-                        <Label htmlFor="signup-email">Email</Label>
+                        <Label htmlFor="admin-email">Email</Label>
                         <Input 
-                          id="signup-email"
+                          id="admin-email"
                           type="email"
-                          placeholder="your.email@example.com"
-                          value={signupEmail}
-                          onChange={(e) => setSignupEmail(e.target.value)}
+                          placeholder="name@moe.gov.sg"
+                          value={adminEmail}
+                          onChange={(e) => setAdminEmail(e.target.value)}
                           required
-                          disabled={signupLoading}
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="signup-password">Password</Label>
+                        <Label htmlFor="admin-password">Password</Label>
                         <Input 
-                          id="signup-password"
+                          id="admin-password"
                           type="password"
                           placeholder="••••••••"
-                          value={signupPassword}
-                          onChange={(e) => setSignupPassword(e.target.value)}
+                          value={adminPassword}
+                          onChange={(e) => setAdminPassword(e.target.value)}
                           required
-                          minLength={6}
-                          disabled={signupLoading}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="signup-confirm-password">Confirm Password</Label>
-                        <Input 
-                          id="signup-confirm-password"
-                          type="password"
-                          placeholder="••••••••"
-                          value={signupConfirmPassword}
-                          onChange={(e) => setSignupConfirmPassword(e.target.value)}
-                          required
-                          minLength={6}
-                          disabled={signupLoading}
                         />
                       </div>
                     </CardContent>
                     <CardFooter className="flex flex-col gap-4">
-                      <Button type="submit" className="w-full" size="lg" disabled={signupLoading}>
-                        {signupLoading ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Creating account...
-                          </>
-                        ) : (
-                          <>
-                            Create Account <ArrowRight className="ml-2 h-4 w-4" />
-                          </>
-                        )}
+                      <Button type="submit" className="w-full" size="lg">
+                        Log in <ArrowRight className="ml-2 h-4 w-4" />
                       </Button>
                       <p className="text-xs text-center text-muted-foreground">
-                        By signing up, you agree to our terms of service
+                        Demo: Use any email ending with <code className="bg-muted px-1 rounded">@moe.gov.sg</code>
                       </p>
                     </CardFooter>
                   </form>
@@ -309,7 +222,7 @@ const LandingPage: React.FC = () => {
       <footer className="border-t bg-card mt-auto">
         <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
           <p className="text-center text-sm text-muted-foreground">
-            © 2025 Ministry of Education. All rights reserved.
+            © 2025 Ministry of Education. All rights reserved. This is a demo application.
           </p>
         </div>
       </footer>

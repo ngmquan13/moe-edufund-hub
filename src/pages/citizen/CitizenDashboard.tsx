@@ -25,19 +25,15 @@ import {
 import { formatCurrency, formatDate, formatDateTime } from '@/lib/data';
 
 const CitizenDashboard: React.FC = () => {
-  const { user } = useAuth();
-  
-  // For demo, we'll use the first account holder that matches the email
-  // In production, this would be fetched from the database based on auth user
-  const allAccountHolders = getEducationAccountByHolder;
-  const account = user ? getEducationAccountByHolder('AH001') : null; // Demo fallback
+  const { citizenUser } = useAuth();
+  const account = citizenUser ? getEducationAccountByHolder(citizenUser.id) : null;
   
   // Force re-render when data changes
   useDataStore(() => account);
   
   const transactions = account ? getTransactionsByAccount(account.id).slice(0, 5) : [];
   const outstandingCharges = account ? getOutstandingChargesByAccount(account.id) : [];
-  const enrolments = getEnrolmentsByHolder('AH001'); // Demo fallback
+  const enrolments = citizenUser ? getEnrolmentsByHolder(citizenUser.id) : [];
   const activeEnrolments = enrolments.filter(e => e.isActive);
   const totalOutstanding = outstandingCharges.filter(c => c.status === 'unpaid').reduce((sum, c) => sum + c.amount, 0);
   
@@ -62,10 +58,10 @@ const CitizenDashboard: React.FC = () => {
       {/* Greeting */}
       <div className="mb-8 animate-fade-in">
         <h1 className="text-2xl font-bold text-foreground sm:text-3xl">
-          Welcome back!
+          Hi, {citizenUser?.firstName}!
         </h1>
         <p className="mt-1 text-muted-foreground">
-          Your Education Account overview
+          Welcome back to your Education Account
         </p>
       </div>
 
