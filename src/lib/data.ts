@@ -5,7 +5,29 @@ export type AccountStatus = 'active' | 'suspended' | 'closed' | 'pending';
 export type TransactionType = 'top_up' | 'charge' | 'payment';
 export type TransactionStatus = 'completed' | 'pending' | 'failed';
 export type PaymentStatus = 'paid' | 'unpaid' | 'overdue' | 'partial';
-export type SchoolingStatus = 'in_school' | 'graduated' | 'dropped_out' | 'deferred';
+export type SchoolingStatus = 'in_school' | 'not_in_school';
+
+// Common education providers for autocomplete
+export const EDUCATION_PROVIDERS = [
+  'Singapore Polytechnic',
+  'Ngee Ann Polytechnic',
+  'Republic Polytechnic',
+  'Temasek Polytechnic',
+  'Nanyang Polytechnic',
+  'Institute of Technical Education',
+  'LASALLE College of the Arts',
+  'Nanyang Academy of Fine Arts',
+  'National University of Singapore',
+  'Nanyang Technological University',
+  'Singapore Management University',
+  'Singapore University of Technology and Design',
+  'Singapore Institute of Technology',
+  'Singapore University of Social Sciences',
+  'James Cook University Singapore',
+  'Kaplan Higher Education',
+  'PSB Academy',
+  'SIM Global Education',
+];
 
 export type AccountActivationStatus = 'non_active' | 'active_immediately' | 'scheduled';
 
@@ -124,17 +146,17 @@ export interface AdminUser {
 // Demo Account Holders
 export const accountHolders: AccountHolder[] = [
   { id: 'AH001', firstName: 'Wei Ming', lastName: 'Tan', nric: 'S9012345A', email: 'weiming.tan@email.com', phone: '+65 9123 4567', dateOfBirth: '2000-03-15', age: 24, address: '123 Orchard Road, Singapore 238888', educationProvider: 'Singapore Polytechnic', schoolingStatus: 'in_school', createdAt: '2023-01-15' },
-  { id: 'AH002', firstName: 'Priya', lastName: 'Kumar', nric: 'S9823456B', email: 'priya.kumar@email.com', phone: '+65 9234 5678', dateOfBirth: '1998-07-22', age: 26, address: '45 Tampines Ave 3, Singapore 529001', educationProvider: 'Ngee Ann Polytechnic', schoolingStatus: 'graduated', createdAt: '2022-08-20' },
+  { id: 'AH002', firstName: 'Priya', lastName: 'Kumar', nric: 'S9823456B', email: 'priya.kumar@email.com', phone: '+65 9234 5678', dateOfBirth: '1998-07-22', age: 26, address: '45 Tampines Ave 3, Singapore 529001', educationProvider: 'Ngee Ann Polytechnic', schoolingStatus: 'not_in_school', createdAt: '2022-08-20' },
   { id: 'AH003', firstName: 'Muhammad', lastName: 'Ali', nric: 'S0534567C', email: 'muhammad.ali@email.com', phone: '+65 9345 6789', dateOfBirth: '2005-11-08', age: 19, address: '78 Jurong West St 41, Singapore 649410', educationProvider: 'Republic Polytechnic', schoolingStatus: 'in_school', createdAt: '2024-01-10' },
   { id: 'AH004', firstName: 'Mei Ling', lastName: 'Lim', nric: 'S0245678D', email: 'meiling.lim@email.com', phone: '+65 9456 7890', dateOfBirth: '2002-05-30', age: 22, address: '12 Marine Parade, Singapore 449269', educationProvider: 'Temasek Polytechnic', schoolingStatus: 'in_school', createdAt: '2023-06-05' },
-  { id: 'AH005', firstName: 'Raj', lastName: 'Sharma', nric: 'S9656789E', email: 'raj.sharma@email.com', phone: '+65 9567 8901', dateOfBirth: '1996-09-12', age: 28, address: '56 Bukit Timah Rd, Singapore 229839', educationProvider: 'LASALLE College of the Arts', schoolingStatus: 'graduated', createdAt: '2021-03-25' },
+  { id: 'AH005', firstName: 'Raj', lastName: 'Sharma', nric: 'S9656789E', email: 'raj.sharma@email.com', phone: '+65 9567 8901', dateOfBirth: '1996-09-12', age: 28, address: '56 Bukit Timah Rd, Singapore 229839', educationProvider: 'LASALLE College of the Arts', schoolingStatus: 'not_in_school', createdAt: '2021-03-25' },
   { id: 'AH006', firstName: 'Sarah', lastName: 'Chen', nric: 'T0767890F', email: 'sarah.chen@email.com', phone: '+65 9678 9012', dateOfBirth: '2007-02-18', age: 17, address: '34 Bedok North Ave 1, Singapore 469646', educationProvider: 'Institute of Technical Education', schoolingStatus: 'in_school', createdAt: '2024-06-01' },
-  { id: 'AH007', firstName: 'Ahmad', lastName: 'Ibrahim', nric: 'S0178901G', email: 'ahmad.ibrahim@email.com', phone: '+65 9789 0123', dateOfBirth: '2001-12-25', age: 23, address: '89 Woodlands Ave 5, Singapore 738985', educationProvider: 'Nanyang Polytechnic', schoolingStatus: 'deferred', createdAt: '2023-09-15' },
+  { id: 'AH007', firstName: 'Ahmad', lastName: 'Ibrahim', nric: 'S0178901G', email: 'ahmad.ibrahim@email.com', phone: '+65 9789 0123', dateOfBirth: '2001-12-25', age: 23, address: '89 Woodlands Ave 5, Singapore 738985', educationProvider: 'Nanyang Polytechnic', schoolingStatus: 'in_school', createdAt: '2023-09-15' },
   { id: 'AH008', firstName: 'Yan Ting', lastName: 'Wong', nric: 'S0489012H', email: 'yanting.wong@email.com', phone: '+65 9890 1234', dateOfBirth: '2004-08-10', age: 20, address: '23 Serangoon Garden Way, Singapore 555948', educationProvider: 'Singapore Polytechnic', schoolingStatus: 'in_school', createdAt: '2024-02-20' },
-  { id: 'AH009', firstName: 'Kavitha', lastName: 'Nair', nric: 'S9990123J', email: 'kavitha.nair@email.com', phone: '+65 9901 2345', dateOfBirth: '1999-04-05', age: 25, address: '67 Clementi Ave 2, Singapore 129803', educationProvider: 'Ngee Ann Polytechnic', schoolingStatus: 'graduated', createdAt: '2022-11-10' },
+  { id: 'AH009', firstName: 'Kavitha', lastName: 'Nair', nric: 'S9990123J', email: 'kavitha.nair@email.com', phone: '+65 9901 2345', dateOfBirth: '1999-04-05', age: 25, address: '67 Clementi Ave 2, Singapore 129803', educationProvider: 'Ngee Ann Polytechnic', schoolingStatus: 'not_in_school', createdAt: '2022-11-10' },
   { id: 'AH010', firstName: 'Jun Wei', lastName: 'Ong', nric: 'T0601234K', email: 'junwei.ong@email.com', phone: '+65 9012 3456', dateOfBirth: '2006-01-20', age: 18, address: '41 Pasir Ris Dr 6, Singapore 519422', educationProvider: 'Institute of Technical Education', schoolingStatus: 'in_school', createdAt: '2024-08-15' },
   { id: 'AH011', firstName: 'Aisha', lastName: 'Hassan', nric: 'S0312345L', email: 'aisha.hassan@email.com', phone: '+65 9111 2222', dateOfBirth: '2003-06-14', age: 21, address: '15 Yishun Ave 11, Singapore 768853', educationProvider: 'Republic Polytechnic', schoolingStatus: 'in_school', createdAt: '2023-04-22' },
-  { id: 'AH012', firstName: 'Kevin', lastName: 'Lee', nric: 'S9723456M', email: 'kevin.lee@email.com', phone: '+65 9222 3333', dateOfBirth: '1997-10-30', age: 27, address: '88 Toa Payoh Lorong 4, Singapore 310088', educationProvider: 'Temasek Polytechnic', schoolingStatus: 'dropped_out', createdAt: '2021-07-18' },
+  { id: 'AH012', firstName: 'Kevin', lastName: 'Lee', nric: 'S9723456M', email: 'kevin.lee@email.com', phone: '+65 9222 3333', dateOfBirth: '1997-10-30', age: 27, address: '88 Toa Payoh Lorong 4, Singapore 310088', educationProvider: 'Temasek Polytechnic', schoolingStatus: 'not_in_school', createdAt: '2021-07-18' },
 ];
 
 // Demo Education Accounts - AH001 (Wei Ming) has $100 balance to demonstrate combined payment
@@ -310,9 +332,7 @@ export const getStatusLabel = (status: AccountStatus) => {
 export const getSchoolingLabel = (status: SchoolingStatus) => {
   const labels: Record<SchoolingStatus, string> = {
     in_school: 'In School',
-    graduated: 'Graduated',
-    dropped_out: 'Dropped Out',
-    deferred: 'Deferred'
+    not_in_school: 'Not In School',
   };
-  return labels[status];
+  return labels[status] || status;
 };

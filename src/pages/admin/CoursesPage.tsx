@@ -54,6 +54,7 @@ import {
   getEducationAccount
 } from '@/lib/dataStore';
 import { formatCurrency, formatDateTime, PaymentType, BillingCycle } from '@/lib/data';
+import { ProviderCombobox } from '@/components/ui/provider-combobox';
 
 const BILLING_CYCLE_DURATIONS: Record<BillingCycle, number> = {
   monthly: 1,
@@ -324,11 +325,10 @@ const CoursesPage: React.FC = () => {
       </div>
       <div className="space-y-2">
         <Label htmlFor="provider">Provider (School/Institution) *</Label>
-        <Input 
-          id="provider" 
-          placeholder="e.g., Singapore Polytechnic"
+        <ProviderCombobox
           value={formProvider}
-          onChange={(e) => setFormProvider(e.target.value)}
+          onChange={setFormProvider}
+          placeholder="Type to search providers..."
         />
       </div>
       <div className="space-y-2">
