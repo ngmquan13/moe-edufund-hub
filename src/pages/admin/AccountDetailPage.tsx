@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, User, Wallet, Calendar, Phone, Mail, MapPin, CreditCard, XCircle, Clock, TrendingUp, TrendingDown, Filter, BookOpen, DollarSign, CheckCircle, Eye, EyeOff, IdCard } from 'lucide-react';
-import { updateEducationAccount } from '@/lib/dataStore';
+import { ArrowLeft, User, Wallet, Calendar, Phone, Mail, MapPin, CreditCard, XCircle, Clock, TrendingUp, TrendingDown, Filter, BookOpen, DollarSign, CheckCircle, Eye, EyeOff, IdCard, Activity, UserCog, Building } from 'lucide-react';
+import { updateEducationAccount, getAuditLogs } from '@/lib/dataStore';
 import { AdminLayout } from '@/components/layouts/AdminLayout';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { StatCard } from '@/components/shared/StatCard';
@@ -37,6 +37,19 @@ import {
   getOutstandingChargesByAccount
 } from '@/lib/data';
 import { toast } from '@/hooks/use-toast';
+import { useDataStore } from '@/hooks/useDataStore';
+
+// Account Log entry type combining transactions, audit logs, and lifecycle events
+interface AccountLogEntry {
+  id: string;
+  type: 'created' | 'activated' | 'suspended' | 'reactivated' | 'closed' | 'top_up' | 'charge' | 'payment' | 'enrolment' | 'admin_action';
+  title: string;
+  description: string;
+  amount?: number;
+  balanceAfter?: number;
+  performedBy?: string;
+  createdAt: string;
+}
 
 const AccountDetailPage: React.FC = () => {
   const { accountId } = useParams<{ accountId: string }>();
@@ -45,9 +58,148 @@ const AccountDetailPage: React.FC = () => {
   const transactions = account ? getTransactionsByAccount(account.id) : [];
   const enrolments = holder ? getEnrolmentsByHolder(holder.id) : [];
   const outstandingCharges = account ? getOutstandingChargesByAccount(account.id) : [];
+  const auditLogs = useDataStore(getAuditLogs);
   
-  const [transactionFilter, setTransactionFilter] = useState<'all' | 'in' | 'out'>('all');
+  const [logFilter, setLogFilter] = useState<'all' | 'transactions' | 'lifecycle' | 'admin'>('all');
   const [showFullNric, setShowFullNric] = useState(false);
+
+  // Build comprehensive account log
+  const accountLog = useMemo((): AccountLogEntry[] => {
+    if (!account || !holder) return [];
+    
+    const entries: AccountLogEntry[] = [];
+    
+    // Account creation
+    entries.push({
+      id: `created-${account.id}`,
+      type: 'created',
+      title: 'Account Created',
+      description: `Education account ${account.id} was created for ${holder.firstName} ${holder.lastName}`,
+      performedBy: 'System',
+      createdAt: account.openedAt + 'T00:00:00',
+    });
+    
+    // Activation event (if not pending)
+    if (account.status === 'active' || account.status === 'suspended' || account.status === 'closed') {
+      entries.push({
+        id: `activated-${account.id}`,
+        type: 'activated',
+        title: 'Account Activated',
+        description: `Account was activated and ready for use`,
+        performedBy: 'System',
+        createdAt: account.openedAt + 'T00:01:00',
+      });
+    }
+    
+    // Suspension event
+    if (account.suspendedAt) {
+      entries.push({
+        id: `suspended-${account.id}`,
+        type: 'suspended',
+        title: 'Account Suspended',
+        description: `Account was suspended`,
+        performedBy: 'Admin User',
+        createdAt: account.suspendedAt + 'T00:00:00',
+      });
+    }
+    
+    // Closed event
+    if (account.closedAt) {
+      entries.push({
+        id: `closed-${account.id}`,
+        type: 'closed',
+        title: 'Account Closed',
+        description: `Account was closed`,
+        performedBy: 'Admin User',
+        createdAt: account.closedAt + 'T00:00:00',
+      });
+    }
+    
+    // Transaction entries
+    transactions.forEach(txn => {
+      let type: AccountLogEntry['type'] = 'top_up';
+      let title = 'Top-up Received';
+      
+      if (txn.type === 'charge') {
+        type = 'charge';
+        title = 'Fee Charged';
+      } else if (txn.type === 'payment') {
+        type = 'payment';
+        title = 'Online Payment Made';
+      }
+      
+      entries.push({
+        id: txn.id,
+        type,
+        title,
+        description: txn.description,
+        amount: txn.amount,
+        balanceAfter: txn.balanceAfter,
+        performedBy: txn.type === 'top_up' ? 'Admin User' : holder.firstName + ' ' + holder.lastName,
+        createdAt: txn.createdAt,
+      });
+    });
+    
+    // Enrolment entries
+    enrolments.forEach(enr => {
+      const course = getCourse(enr.courseId);
+      entries.push({
+        id: `enrol-${enr.id}`,
+        type: 'enrolment',
+        title: 'Course Enrolled',
+        description: `Enrolled in ${course?.name || 'Unknown Course'}`,
+        performedBy: 'Admin User',
+        createdAt: enr.startDate + 'T00:00:00',
+      });
+    });
+    
+    // Audit log entries related to this account
+    const accountAuditLogs = auditLogs.filter(log => 
+      log.entityId === account.id || log.entityId === holder.id
+    );
+    
+    accountAuditLogs.forEach(log => {
+      // Skip if we already have a corresponding entry
+      if (log.action === 'Account Created' || log.action === 'Account Suspended' || log.action === 'Account Reactivated') {
+        // Add reactivation entries
+        if (log.action === 'Account Reactivated') {
+          entries.push({
+            id: log.id,
+            type: 'reactivated',
+            title: 'Account Reactivated',
+            description: log.details,
+            performedBy: log.userName,
+            createdAt: log.createdAt,
+          });
+        } else {
+          return; // Skip duplicates
+        }
+      } else {
+        entries.push({
+          id: log.id,
+          type: 'admin_action',
+          title: log.action,
+          description: log.details,
+          performedBy: log.userName,
+          createdAt: log.createdAt,
+        });
+      }
+    });
+    
+    // Sort by date (newest first)
+    return entries.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }, [account, holder, transactions, enrolments, auditLogs]);
+
+  // Filter log entries
+  const filteredLog = useMemo(() => {
+    return accountLog.filter(entry => {
+      if (logFilter === 'all') return true;
+      if (logFilter === 'transactions') return ['top_up', 'charge', 'payment'].includes(entry.type);
+      if (logFilter === 'lifecycle') return ['created', 'activated', 'suspended', 'reactivated', 'closed', 'enrolment'].includes(entry.type);
+      if (logFilter === 'admin') return entry.performedBy !== holder?.firstName + ' ' + holder?.lastName;
+      return true;
+    });
+  }, [accountLog, logFilter, holder]);
 
   if (!account || !holder) {
     return (
@@ -108,17 +260,46 @@ const AccountDetailPage: React.FC = () => {
   const overallMoneyIn = totalTopUps + totalPayments;
   const overallMoneyOut = totalCharges;
   
-  // Filter and sort transactions (newest first)
-  const sortedTransactions = [...transactions].sort((a, b) => 
-    new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-  );
+  // Get log entry icon based on type
+  const getLogIcon = (type: AccountLogEntry['type']) => {
+    switch (type) {
+      case 'created': return <CheckCircle className="h-4 w-4 text-success" />;
+      case 'activated': return <CheckCircle className="h-4 w-4 text-success" />;
+      case 'suspended': return <XCircle className="h-4 w-4 text-destructive" />;
+      case 'reactivated': return <CheckCircle className="h-4 w-4 text-success" />;
+      case 'closed': return <XCircle className="h-4 w-4 text-muted-foreground" />;
+      case 'top_up': return <TrendingUp className="h-4 w-4 text-success" />;
+      case 'charge': return <TrendingDown className="h-4 w-4 text-destructive" />;
+      case 'payment': return <DollarSign className="h-4 w-4 text-primary" />;
+      case 'enrolment': return <BookOpen className="h-4 w-4 text-primary" />;
+      case 'admin_action': return <UserCog className="h-4 w-4 text-muted-foreground" />;
+      default: return <Activity className="h-4 w-4" />;
+    }
+  };
 
-  const filteredTransactions = sortedTransactions.filter(t => {
-    if (transactionFilter === 'all') return true;
-    if (transactionFilter === 'in') return t.amount > 0;
-    if (transactionFilter === 'out') return t.amount < 0;
-    return true;
-  });
+  const getLogBadgeVariant = (type: AccountLogEntry['type']) => {
+    switch (type) {
+      case 'created':
+      case 'activated':
+      case 'reactivated':
+        return 'success';
+      case 'suspended':
+      case 'closed':
+        return 'destructive';
+      case 'top_up':
+        return 'success';
+      case 'charge':
+        return 'warning';
+      case 'payment':
+        return 'default';
+      case 'enrolment':
+        return 'secondary';
+      case 'admin_action':
+        return 'outline';
+      default:
+        return 'secondary';
+    }
+  };
 
   // Get payment status for each course (only Paid, Pending Payment, Unpaid)
   const getCoursePaymentStatus = (courseId: string): 'paid' | 'pending' | 'unpaid' => {
@@ -368,23 +549,24 @@ const AccountDetailPage: React.FC = () => {
         </Card>
       </div>
 
-      {/* Lower Section - Transaction History */}
+      {/* Lower Section - Account Log */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="flex items-center gap-2">
-            <Clock className="h-5 w-5" />
-            Transaction History
+            <Activity className="h-5 w-5" />
+            Account Log
           </CardTitle>
           <div className="flex items-center gap-2">
             <Filter className="h-4 w-4 text-muted-foreground" />
-            <Select value={transactionFilter} onValueChange={(v) => setTransactionFilter(v as any)}>
-              <SelectTrigger className="w-[150px]">
+            <Select value={logFilter} onValueChange={(v) => setLogFilter(v as any)}>
+              <SelectTrigger className="w-[180px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Transactions</SelectItem>
-                <SelectItem value="in">Money In</SelectItem>
-                <SelectItem value="out">Money Out</SelectItem>
+                <SelectItem value="all">All Activity</SelectItem>
+                <SelectItem value="transactions">Transactions Only</SelectItem>
+                <SelectItem value="lifecycle">Lifecycle Events</SelectItem>
+                <SelectItem value="admin">Admin Actions</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -393,47 +575,59 @@ const AccountDetailPage: React.FC = () => {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Date</TableHead>
-                <TableHead>Description</TableHead>
-                <TableHead>Reference</TableHead>
+                <TableHead className="w-[50px]"></TableHead>
+                <TableHead>Date & Time</TableHead>
+                <TableHead>Action</TableHead>
+                <TableHead>Details</TableHead>
+                <TableHead>Performed By</TableHead>
                 <TableHead className="text-right">Amount</TableHead>
                 <TableHead className="text-right">Balance</TableHead>
-                <TableHead>Status</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredTransactions.length > 0 ? (
-                filteredTransactions.map((txn) => (
-                  <TableRow key={txn.id}>
+              {filteredLog.length > 0 ? (
+                filteredLog.map((entry) => (
+                  <TableRow key={entry.id}>
+                    <TableCell>
+                      {getLogIcon(entry.type)}
+                    </TableCell>
                     <TableCell className="text-sm">
-                      {formatDateTime(txn.createdAt)}
+                      {formatDateTime(entry.createdAt)}
                     </TableCell>
                     <TableCell>
-                      <p className="font-medium text-sm">{txn.description}</p>
-                      {txn.period && (
-                        <p className="text-xs text-muted-foreground">{txn.period}</p>
+                      <Badge variant={getLogBadgeVariant(entry.type) as any}>
+                        {entry.title}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <p className="text-sm text-muted-foreground max-w-[300px] truncate">
+                        {entry.description}
+                      </p>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <UserCog className="h-3 w-3 text-muted-foreground" />
+                        <span className="text-sm">{entry.performedBy}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className={`text-right font-medium ${entry.amount ? (entry.amount > 0 ? 'text-success' : 'text-destructive') : ''}`}>
+                      {entry.amount ? (
+                        <>{entry.amount > 0 ? '+' : ''}{formatCurrency(entry.amount)}</>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
                       )}
                     </TableCell>
-                    <TableCell className="font-mono text-xs text-muted-foreground">
-                      {txn.reference}
-                    </TableCell>
-                    <TableCell className={`text-right font-medium ${txn.amount > 0 ? 'text-success' : 'text-destructive'}`}>
-                      {txn.amount > 0 ? '+' : ''}{formatCurrency(txn.amount)}
-                    </TableCell>
                     <TableCell className="text-right text-sm">
-                      {formatCurrency(txn.balanceAfter)}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={txn.status === 'completed' ? 'success' : txn.status === 'pending' ? 'warning' : 'destructive'}>
-                        {txn.status}
-                      </Badge>
+                      {entry.balanceAfter !== undefined ? formatCurrency(entry.balanceAfter) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                    No transactions found
+                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    No activity found
                   </TableCell>
                 </TableRow>
               )}

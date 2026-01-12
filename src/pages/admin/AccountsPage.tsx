@@ -195,6 +195,8 @@ const AccountsPage: React.FC = () => {
       phone: '+65 9123 4567',
       dateOfBirth: '1995-05-15',
       address: '123 Example Street, Singapore 123456',
+      educationProvider: 'Singapore Polytechnic',
+      schoolingStatus: 'in_school' as SchoolingStatus,
     };
 
     setFirstName(mockData.firstName);
@@ -203,6 +205,8 @@ const AccountsPage: React.FC = () => {
     setPhone(mockData.phone);
     setDateOfBirth(mockData.dateOfBirth);
     setAddress(mockData.address);
+    setEducationProvider(mockData.educationProvider);
+    setSchoolingStatus(mockData.schoolingStatus);
     setIsNricRetrieved(true);
 
     toast({
@@ -419,30 +423,26 @@ const AccountsPage: React.FC = () => {
                     />
                   </div>
 
-                  {/* Education Provider - Editable */}
+                  {/* Education Provider - Auto-populated from retrieve */}
                   <div className="space-y-2">
                     <Label htmlFor="educationProvider">Education Provider (School/Institution) *</Label>
                     <Input 
                       id="educationProvider" 
                       placeholder="e.g., Singapore Polytechnic"
                       value={educationProvider}
-                      onChange={(e) => setEducationProvider(e.target.value)}
+                      readOnly
+                      className="bg-muted"
                     />
                   </div>
 
                   <div className="space-y-2">
                     <Label htmlFor="schooling">Schooling Status</Label>
-                    <Select value={schoolingStatus} onValueChange={(v) => setSchoolingStatus(v as SchoolingStatus)}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="in_school">In School</SelectItem>
-                        <SelectItem value="graduated">Graduated</SelectItem>
-                        <SelectItem value="deferred">Deferred</SelectItem>
-                        <SelectItem value="dropped_out">Dropped Out</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Input 
+                      id="schooling" 
+                      value={schoolingStatus === 'in_school' ? 'In School' : 'Not In School'}
+                      readOnly
+                      className="bg-muted"
+                    />
                   </div>
 
                   {/* Account Status Selection */}
