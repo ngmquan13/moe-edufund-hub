@@ -125,7 +125,8 @@ const AccountsPage: React.FC = () => {
       entityType: 'EducationAccount',
       entityId: accountId,
       userId: 'USR001',
-      userName: 'Admin User',
+      userName: 'John Tan',
+      userRole: 'admin',
       details: `Account ${accountId} has been suspended`,
       createdAt: new Date().toISOString(),
     });
@@ -147,7 +148,8 @@ const AccountsPage: React.FC = () => {
       entityType: 'EducationAccount',
       entityId: accountId,
       userId: 'USR001',
-      userName: 'Admin User',
+      userName: 'John Tan',
+      userRole: 'admin',
       details: `Account ${accountId} has been reactivated`,
       createdAt: new Date().toISOString(),
     });
@@ -261,9 +263,11 @@ const AccountsPage: React.FC = () => {
     addAccountHolder(newHolder);
 
     // Determine account status based on activation setting
-    let accountStatus: AccountStatus = 'pending';
+    let accountStatus: AccountStatus = 'not_active';
     if (activationStatus === 'active_immediately') {
       accountStatus = 'active';
+    } else if (activationStatus === 'scheduled') {
+      accountStatus = 'pending_activation';
     }
 
     // Create education account
@@ -286,17 +290,33 @@ const AccountsPage: React.FC = () => {
 
     addEducationAccount(newAccount);
 
-    // Add audit log
+    // Add audit log for account creation
     addAuditLog({
       id: `AUD${String(Date.now()).slice(-6)}`,
       action: 'Account Created',
       entityType: 'EducationAccount',
       entityId: accountId,
       userId: 'USR001',
-      userName: 'Admin User',
-      details: `New education account created for ${firstName} ${lastName} (${educationProvider})${activationStatus === 'scheduled' ? ` - Scheduled for activation on ${format(scheduledActivationDate!, 'PPP')}` : ''}`,
+      userName: 'John Tan',
+      userRole: 'admin',
+      details: `New education account created for ${firstName} ${lastName} (${educationProvider})`,
       createdAt: new Date().toISOString(),
     });
+
+    // Add scheduled activation log if applicable
+    if (activationStatus === 'scheduled' && scheduledActivationDate) {
+      addAuditLog({
+        id: `AUD${String(Date.now()).slice(-6)}A`,
+        action: 'Activation Scheduled',
+        entityType: 'EducationAccount',
+        entityId: accountId,
+        userId: 'USR001',
+        userName: 'John Tan',
+        userRole: 'admin',
+        details: `This account has been set to be activated on ${format(scheduledActivationDate, 'dd/MM/yyyy')}`,
+        createdAt: new Date().toISOString(),
+      });
+    }
 
     toast({
       title: "Account Created",
@@ -452,8 +472,8 @@ const AccountsPage: React.FC = () => {
                       className="space-y-2"
                     >
                       <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="non_active" id="non_active" />
-                        <Label htmlFor="non_active" className="font-normal">Non-active</Label>
+                        <RadioGroupItem value="not_active" id="not_active" />
+                        <Label htmlFor="not_active" className="font-normal">Not-active</Label>
                       </div>
                       <div className="flex items-center space-x-2">
                         <RadioGroupItem value="active_immediately" id="active_immediately" />
@@ -528,7 +548,8 @@ const AccountsPage: React.FC = () => {
                 <SelectContent>
                   <SelectItem value="all">All Statuses</SelectItem>
                   <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="not_active">Not-active</SelectItem>
+                  <SelectItem value="pending_activation">Pending Activation</SelectItem>
                   <SelectItem value="suspended">Suspended</SelectItem>
                   <SelectItem value="closed">Closed</SelectItem>
                 </SelectContent>

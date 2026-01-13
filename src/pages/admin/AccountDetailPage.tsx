@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, User, Wallet, Calendar, Phone, Mail, MapPin, CreditCard, XCircle, Clock, TrendingUp, TrendingDown, Filter, BookOpen, DollarSign, CheckCircle, Eye, EyeOff, IdCard, Activity, UserCog, Building } from 'lucide-react';
-import { updateEducationAccount, getAuditLogs, getEducationAccounts } from '@/lib/dataStore';
+import { ArrowLeft, User, Wallet, Calendar, Phone, Mail, MapPin, CreditCard, XCircle, Clock, TrendingUp, TrendingDown, Filter, BookOpen, DollarSign, CheckCircle, Eye, EyeOff, IdCard, Activity, UserCog, Building, CalendarClock, PlayCircle } from 'lucide-react';
+import { updateEducationAccount, getAuditLogs, getEducationAccounts, addAuditLog } from '@/lib/dataStore';
 import { AdminLayout } from '@/components/layouts/AdminLayout';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { StatCard } from '@/components/shared/StatCard';
@@ -24,6 +24,19 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar as CalendarIcon } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { format } from 'date-fns';
+import {
   getAccountHolder,
   getTransactionsByAccount,
   getOutstandingChargesByAccount,
@@ -35,7 +48,9 @@ import {
   formatDate,
   formatDateTime,
   getStatusLabel,
-  getSchoolingLabel
+  getSchoolingLabel,
+  getRoleBadgeLabel,
+  PerformerRole
 } from '@/lib/data';
 import { toast } from '@/hooks/use-toast';
 import { useDataStore } from '@/hooks/useDataStore';
@@ -43,12 +58,13 @@ import { useDataStore } from '@/hooks/useDataStore';
 // Account Log entry type combining transactions, audit logs, and lifecycle events
 interface AccountLogEntry {
   id: string;
-  type: 'created' | 'activated' | 'suspended' | 'reactivated' | 'closed' | 'top_up' | 'charge' | 'payment' | 'enrolment' | 'admin_action';
+  type: 'created' | 'activated' | 'suspended' | 'reactivated' | 'closed' | 'top_up' | 'charge' | 'payment' | 'enrolment' | 'admin_action' | 'scheduled_activation';
   title: string;
   description: string;
   amount?: number;
   balanceAfter?: number;
   performedBy?: string;
+  performerRole?: PerformerRole;
   createdAt: string;
 }
 
@@ -67,6 +83,22 @@ const AccountDetailPage: React.FC = () => {
   
   const [logFilter, setLogFilter] = useState<'all' | 'transactions' | 'lifecycle' | 'admin'>('all');
   const [showFullNric, setShowFullNric] = useState(false);
+  const [rescheduleDialogOpen, setRescheduleDialogOpen] = useState(false);
+  const [newActivationDate, setNewActivationDate] = useState<Date | undefined>();
+
+  // Helper function to get role badge variant
+  const getRoleBadgeVariant = (role?: PerformerRole) => {
+    switch (role) {
+      case 'admin': return 'default';
+      case 'finance': return 'secondary';
+      case 'school_ops': return 'outline';
+      case 'customer_service': return 'outline';
+      case 'it_support': return 'outline';
+      case 'student': return 'secondary';
+      case 'system': return 'outline';
+      default: return 'outline';
+    }
+  };
 
   // Build comprehensive account log
   const accountLog = useMemo((): AccountLogEntry[] => {
@@ -74,17 +106,29 @@ const AccountDetailPage: React.FC = () => {
     
     const entries: AccountLogEntry[] = [];
     
-    // Account creation
-    entries.push({
-      id: `created-${account.id}`,
-      type: 'created',
-      title: 'Account Created',
-      description: `Education account ${account.id} was created for ${holder.firstName} ${holder.lastName}`,
-      performedBy: 'System',
-      createdAt: account.openedAt + 'T00:00:00',
-    });
+    // Audit log entries related to this account - process first to capture all admin actions
+    const accountAuditLogs = auditLogs.filter(log => 
+      log.entityId === account.id || log.entityId === holder.id
+    );
     
-    // Activation event (if not pending)
+    // Track which events we've added from audit logs
+    const hasAccountCreated = accountAuditLogs.some(log => log.action === 'Account Created');
+    const hasScheduledActivation = accountAuditLogs.some(log => log.action === 'Activation Scheduled' || log.action === 'Activation Rescheduled');
+    
+    // Account creation - use audit log if available, otherwise fallback
+    if (!hasAccountCreated) {
+      entries.push({
+        id: `created-${account.id}`,
+        type: 'created',
+        title: 'Account Created',
+        description: `Education account ${account.id} was created for ${holder.firstName} ${holder.lastName}`,
+        performedBy: 'System',
+        performerRole: 'system',
+        createdAt: account.openedAt + 'T00:00:00',
+      });
+    }
+    
+    // Activation event (if not pending_activation or not_active)
     if (account.status === 'active' || account.status === 'suspended' || account.status === 'closed') {
       entries.push({
         id: `activated-${account.id}`,
@@ -92,7 +136,21 @@ const AccountDetailPage: React.FC = () => {
         title: 'Account Activated',
         description: `Account was activated and ready for use`,
         performedBy: 'System',
+        performerRole: 'system',
         createdAt: account.openedAt + 'T00:01:00',
+      });
+    }
+    
+    // Scheduled activation from account data if no audit log
+    if (account.status === 'pending_activation' && account.scheduledActivationDate && !hasScheduledActivation) {
+      entries.push({
+        id: `scheduled-${account.id}`,
+        type: 'scheduled_activation',
+        title: 'Activation Scheduled',
+        description: `This account has been set to be activated on ${format(new Date(account.scheduledActivationDate), 'dd/MM/yyyy')}`,
+        performedBy: 'System',
+        performerRole: 'system',
+        createdAt: account.openedAt + 'T00:00:30',
       });
     }
     
@@ -104,6 +162,7 @@ const AccountDetailPage: React.FC = () => {
         title: 'Account Suspended',
         description: `Account was suspended`,
         performedBy: 'Admin User',
+        performerRole: 'admin',
         createdAt: account.suspendedAt + 'T00:00:00',
       });
     }
@@ -116,6 +175,7 @@ const AccountDetailPage: React.FC = () => {
         title: 'Account Closed',
         description: `Account was closed`,
         performedBy: 'Admin User',
+        performerRole: 'admin',
         createdAt: account.closedAt + 'T00:00:00',
       });
     }
@@ -124,13 +184,16 @@ const AccountDetailPage: React.FC = () => {
     transactions.forEach(txn => {
       let type: AccountLogEntry['type'] = 'top_up';
       let title = 'Top-up Received';
+      let performerRole: PerformerRole = 'admin';
       
       if (txn.type === 'charge') {
         type = 'charge';
         title = 'Fee Charged';
+        performerRole = 'system';
       } else if (txn.type === 'payment') {
         type = 'payment';
         title = 'Online Payment Made';
+        performerRole = 'student';
       }
       
       entries.push({
@@ -140,7 +203,8 @@ const AccountDetailPage: React.FC = () => {
         description: txn.description,
         amount: txn.amount,
         balanceAfter: txn.balanceAfter,
-        performedBy: txn.type === 'top_up' ? 'Admin User' : holder.firstName + ' ' + holder.lastName,
+        performedBy: txn.type === 'top_up' ? 'Admin User' : (txn.type === 'payment' ? holder.firstName + ' ' + holder.lastName : 'System'),
+        performerRole,
         createdAt: txn.createdAt,
       });
     });
@@ -154,31 +218,61 @@ const AccountDetailPage: React.FC = () => {
         title: 'Course Enrolled',
         description: `Enrolled in ${course?.name || 'Unknown Course'}`,
         performedBy: 'Admin User',
+        performerRole: 'admin',
         createdAt: enr.startDate + 'T00:00:00',
       });
     });
     
-    // Audit log entries related to this account
-    const accountAuditLogs = auditLogs.filter(log => 
-      log.entityId === account.id || log.entityId === holder.id
-    );
-    
+    // Process audit logs
     accountAuditLogs.forEach(log => {
-      // Skip if we already have a corresponding entry
-      if (log.action === 'Account Created' || log.action === 'Account Suspended' || log.action === 'Account Reactivated') {
-        // Add reactivation entries
-        if (log.action === 'Account Reactivated') {
-          entries.push({
-            id: log.id,
-            type: 'reactivated',
-            title: 'Account Reactivated',
-            description: log.details,
-            performedBy: log.userName,
-            createdAt: log.createdAt,
-          });
-        } else {
-          return; // Skip duplicates
+      if (log.action === 'Account Created') {
+        entries.push({
+          id: log.id,
+          type: 'created',
+          title: 'Account Created',
+          description: log.details,
+          performedBy: log.userName,
+          performerRole: log.userRole || 'admin',
+          createdAt: log.createdAt,
+        });
+      } else if (log.action === 'Activation Scheduled' || log.action === 'Activation Rescheduled') {
+        entries.push({
+          id: log.id,
+          type: 'scheduled_activation',
+          title: log.action,
+          description: log.details,
+          performedBy: log.userName,
+          performerRole: log.userRole || 'admin',
+          createdAt: log.createdAt,
+        });
+      } else if (log.action === 'Account Reactivated') {
+        entries.push({
+          id: log.id,
+          type: 'reactivated',
+          title: 'Account Reactivated',
+          description: log.details,
+          performedBy: log.userName,
+          performerRole: log.userRole || 'admin',
+          createdAt: log.createdAt,
+        });
+      } else if (log.action === 'Account Suspended') {
+        // Update existing suspended entry with audit log info
+        const existingSuspended = entries.find(e => e.id === `suspended-${account.id}`);
+        if (existingSuspended) {
+          existingSuspended.performedBy = log.userName;
+          existingSuspended.performerRole = log.userRole || 'admin';
+          existingSuspended.description = log.details;
         }
+      } else if (log.action === 'Account Activated Now') {
+        entries.push({
+          id: log.id,
+          type: 'activated',
+          title: 'Account Activated',
+          description: log.details,
+          performedBy: log.userName,
+          performerRole: log.userRole || 'admin',
+          createdAt: log.createdAt,
+        });
       } else {
         entries.push({
           id: log.id,
@@ -186,6 +280,7 @@ const AccountDetailPage: React.FC = () => {
           title: log.action,
           description: log.details,
           performedBy: log.userName,
+          performerRole: log.userRole || 'admin',
           createdAt: log.createdAt,
         });
       }
@@ -200,7 +295,7 @@ const AccountDetailPage: React.FC = () => {
     return accountLog.filter(entry => {
       if (logFilter === 'all') return true;
       if (logFilter === 'transactions') return ['top_up', 'charge', 'payment'].includes(entry.type);
-      if (logFilter === 'lifecycle') return ['created', 'activated', 'suspended', 'reactivated', 'closed', 'enrolment'].includes(entry.type);
+      if (logFilter === 'lifecycle') return ['created', 'activated', 'suspended', 'reactivated', 'closed', 'enrolment', 'scheduled_activation'].includes(entry.type);
       if (logFilter === 'admin') return entry.performedBy !== holder?.firstName + ' ' + holder?.lastName;
       return true;
     });
@@ -224,6 +319,17 @@ const AccountDetailPage: React.FC = () => {
       status: 'suspended',
       suspendedAt: new Date().toISOString().split('T')[0]
     });
+    addAuditLog({
+      id: `AUD${String(Date.now()).slice(-6)}`,
+      action: 'Account Suspended',
+      entityType: 'EducationAccount',
+      entityId: account.id,
+      userId: 'USR001',
+      userName: 'John Tan',
+      userRole: 'admin',
+      details: `Account ${account.id} has been suspended`,
+      createdAt: new Date().toISOString(),
+    });
     toast({
       title: "Account Suspended",
       description: `Account ${account.id} has been suspended.`,
@@ -236,10 +342,76 @@ const AccountDetailPage: React.FC = () => {
       status: 'active',
       suspendedAt: null
     });
+    addAuditLog({
+      id: `AUD${String(Date.now()).slice(-6)}`,
+      action: 'Account Reactivated',
+      entityType: 'EducationAccount',
+      entityId: account.id,
+      userId: 'USR001',
+      userName: 'John Tan',
+      userRole: 'admin',
+      details: `Account ${account.id} has been reactivated`,
+      createdAt: new Date().toISOString(),
+    });
     toast({
       title: "Account Reactivated",
       description: `Account ${account.id} has been reactivated.`,
     });
+  };
+
+  const handleActivateNow = () => {
+    updateEducationAccount(account.id, { 
+      status: 'active',
+      activationStatus: 'active_immediately',
+      scheduledActivationDate: null
+    });
+    addAuditLog({
+      id: `AUD${String(Date.now()).slice(-6)}`,
+      action: 'Account Activated Now',
+      entityType: 'EducationAccount',
+      entityId: account.id,
+      userId: 'USR001',
+      userName: 'John Tan',
+      userRole: 'admin',
+      details: `Account ${account.id} was activated immediately (previously scheduled for ${account.scheduledActivationDate ? format(new Date(account.scheduledActivationDate), 'dd/MM/yyyy') : 'later'})`,
+      createdAt: new Date().toISOString(),
+    });
+    toast({
+      title: "Account Activated",
+      description: `Account ${account.id} has been activated immediately.`,
+    });
+  };
+
+  const handleRescheduleActivation = () => {
+    if (!newActivationDate) {
+      toast({
+        title: "Validation Error",
+        description: "Please select a new activation date.",
+        variant: "destructive",
+      });
+      return;
+    }
+    const oldDate = account.scheduledActivationDate;
+    updateEducationAccount(account.id, { 
+      scheduledActivationDate: newActivationDate.toISOString().split('T')[0]
+    });
+    addAuditLog({
+      id: `AUD${String(Date.now()).slice(-6)}`,
+      action: 'Activation Rescheduled',
+      entityType: 'EducationAccount',
+      entityId: account.id,
+      userId: 'USR001',
+      userName: 'John Tan',
+      userRole: 'admin',
+      details: `Activation date rescheduled from ${oldDate ? format(new Date(oldDate), 'dd/MM/yyyy') : 'not set'} to ${format(newActivationDate, 'dd/MM/yyyy')}`,
+      createdAt: new Date().toISOString(),
+    });
+    toast({
+      title: "Activation Rescheduled",
+      description: `Account ${account.id} activation rescheduled to ${format(newActivationDate, 'dd/MM/yyyy')}.`,
+    });
+    setRescheduleDialogOpen(false);
+    setNewActivationDate(undefined);
   };
 
   // Helper function to mask/display NRIC
@@ -278,6 +450,7 @@ const AccountDetailPage: React.FC = () => {
       case 'payment': return <DollarSign className="h-4 w-4 text-primary" />;
       case 'enrolment': return <BookOpen className="h-4 w-4 text-primary" />;
       case 'admin_action': return <UserCog className="h-4 w-4 text-muted-foreground" />;
+      case 'scheduled_activation': return <CalendarClock className="h-4 w-4 text-primary" />;
       default: return <Activity className="h-4 w-4" />;
     }
   };
@@ -301,6 +474,8 @@ const AccountDetailPage: React.FC = () => {
         return 'secondary';
       case 'admin_action':
         return 'outline';
+      case 'scheduled_activation':
+        return 'default';
       default:
         return 'secondary';
     }
@@ -346,7 +521,60 @@ const AccountDetailPage: React.FC = () => {
             Re-activate
           </Button>
         )}
+        {account.status === 'pending_activation' && (
+          <>
+            <Button variant="outline" onClick={() => setRescheduleDialogOpen(true)}>
+              <CalendarClock className="h-4 w-4 mr-2" />
+              Re-schedule
+            </Button>
+            <Button variant="default" onClick={handleActivateNow}>
+              <PlayCircle className="h-4 w-4 mr-2" />
+              Activate Now
+            </Button>
+          </>
+        )}
       </PageHeader>
+
+      {/* Reschedule Activation Dialog */}
+      <Dialog open={rescheduleDialogOpen} onOpenChange={setRescheduleDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reschedule Activation</DialogTitle>
+            <DialogDescription>
+              Select a new activation date for this account. Current scheduled date: {account.scheduledActivationDate ? format(new Date(account.scheduledActivationDate), 'dd/MM/yyyy') : 'Not set'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "w-full justify-start text-left font-normal",
+                    !newActivationDate && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {newActivationDate ? format(newActivationDate, "PPP") : "Pick new activation date"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0">
+                <CalendarComponent
+                  mode="single"
+                  selected={newActivationDate}
+                  onSelect={setNewActivationDate}
+                  disabled={(date) => date < new Date()}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRescheduleDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleRescheduleActivation}>Reschedule</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Account Overview - Upper Section */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
@@ -613,6 +841,11 @@ const AccountDetailPage: React.FC = () => {
                       <div className="flex items-center gap-2">
                         <UserCog className="h-3 w-3 text-muted-foreground" />
                         <span className="text-sm">{entry.performedBy}</span>
+                        {entry.performerRole && entry.performerRole !== 'system' && (
+                          <Badge variant={getRoleBadgeVariant(entry.performerRole) as any} className="text-xs px-1.5 py-0">
+                            {getRoleBadgeLabel(entry.performerRole)}
+                          </Badge>
+                        )}
                       </div>
                     </TableCell>
                     <TableCell className={`text-right font-medium ${entry.amount ? (entry.amount > 0 ? 'text-success' : 'text-destructive') : ''}`}>
