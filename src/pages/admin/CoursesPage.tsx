@@ -104,8 +104,6 @@ const CoursesPage: React.FC = () => {
   const [formBillingCycle, setFormBillingCycle] = useState<BillingCycle>('monthly');
   const [formStartDate, setFormStartDate] = useState<Date | undefined>();
   const [formEndDate, setFormEndDate] = useState<Date | undefined>();
-  const [formPaymentDeadlineDays, setFormPaymentDeadlineDays] = useState('30');
-  const [formBillingDay, setFormBillingDay] = useState('1');
   
   // Student search states
   const [studentSearchQuery, setStudentSearchQuery] = useState('');
@@ -137,8 +135,6 @@ const CoursesPage: React.FC = () => {
     setFormBillingCycle('monthly');
     setFormStartDate(undefined);
     setFormEndDate(undefined);
-    setFormPaymentDeadlineDays('30');
-    setFormBillingDay('1');
   };
 
   const handleCreateCourse = () => {
@@ -171,8 +167,6 @@ const CoursesPage: React.FC = () => {
       paymentType: formPaymentType,
       billingCycle: formPaymentType === 'recurring' ? formBillingCycle : undefined,
       durationMonths,
-      paymentDeadlineDays: formPaymentType === 'one_time' ? parseInt(formPaymentDeadlineDays) : undefined,
-      billingDay: formPaymentType === 'recurring' ? parseInt(formBillingDay) : undefined,
     };
 
     addCourse(newCourse);
@@ -198,8 +192,6 @@ const CoursesPage: React.FC = () => {
     setFormBillingCycle(course.billingCycle || 'monthly');
     setFormStartDate(course.startDate ? new Date(course.startDate) : undefined);
     setFormEndDate(course.endDate ? new Date(course.endDate) : undefined);
-    setFormPaymentDeadlineDays(course.paymentDeadlineDays?.toString() || '30');
-    setFormBillingDay(course.billingDay?.toString() || '1');
     setEditDialogOpen(true);
   };
 
@@ -228,8 +220,6 @@ const CoursesPage: React.FC = () => {
       startDate: formStartDate ? formStartDate.toISOString().split('T')[0] : undefined,
       endDate: formEndDate ? formEndDate.toISOString().split('T')[0] : undefined,
       durationMonths,
-      paymentDeadlineDays: formPaymentType === 'one_time' ? parseInt(formPaymentDeadlineDays) : undefined,
-      billingDay: formPaymentType === 'recurring' ? parseInt(formBillingDay) : undefined,
     });
 
     toast({
@@ -437,51 +427,21 @@ const CoursesPage: React.FC = () => {
         </Select>
       </div>
 
-      {/* One-time Payment: Payment Deadline (Days) */}
-      {formPaymentType === 'one_time' && (
-        <div className="space-y-2">
-          <Label>Payment Deadline (Days)</Label>
-          <Input 
-            type="number" 
-            min="1"
-            max="365"
-            placeholder="e.g., 30"
-            value={formPaymentDeadlineDays}
-            onChange={(e) => setFormPaymentDeadlineDays(e.target.value)}
-          />
-          <p className="text-xs text-muted-foreground">Number of days after enrollment to pay</p>
-        </div>
-      )}
-
-      {/* Recurring Payment: Billing Cycle + Billing Day */}
+      {/* Recurring Payment: Billing Cycle */}
       {formPaymentType === 'recurring' && (
-        <>
-          <div className="space-y-2">
-            <Label>Billing Cycle</Label>
-            <Select value={formBillingCycle} onValueChange={(v) => setFormBillingCycle(v as BillingCycle)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {Object.entries(BILLING_CYCLE_LABELS).map(([value, label]) => (
-                  <SelectItem key={value} value={value}>{label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label>Billing Day (1-31)</Label>
-            <Input 
-              type="number" 
-              min="1"
-              max="31"
-              placeholder="e.g., 1"
-              value={formBillingDay}
-              onChange={(e) => setFormBillingDay(e.target.value)}
-            />
-            <p className="text-xs text-muted-foreground">Day of the month when billing occurs</p>
-          </div>
-        </>
+        <div className="space-y-2">
+          <Label>Billing Cycle</Label>
+          <Select value={formBillingCycle} onValueChange={(v) => setFormBillingCycle(v as BillingCycle)}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {Object.entries(BILLING_CYCLE_LABELS).map(([value, label]) => (
+                <SelectItem key={value} value={value}>{label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       )}
 
       <div className="flex items-center justify-between">
