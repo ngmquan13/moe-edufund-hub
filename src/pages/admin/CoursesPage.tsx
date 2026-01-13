@@ -77,13 +77,22 @@ interface CourseDetailsContentProps {
   course: ReturnType<typeof getCourses>[0];
   onEdit: () => void;
   onManageStudents: () => void;
+  onRemoveStudent: (enrolmentId: string) => void;
   onClose: () => void;
 }
+
+const BILLING_CYCLE_LABELS_DETAIL: Record<string, string> = {
+  monthly: 'Monthly',
+  quarterly: 'Quarterly',
+  bi_annually: 'Bi-annually',
+  annually: 'Annually',
+};
 
 const CourseDetailsContent: React.FC<CourseDetailsContentProps> = ({ 
   course, 
   onEdit, 
-  onManageStudents, 
+  onManageStudents,
+  onRemoveStudent,
   onClose 
 }) => {
   const enrolments = getEnrolmentsByCourse(course.id);
@@ -94,12 +103,6 @@ const CourseDetailsContent: React.FC<CourseDetailsContentProps> = ({
   
   // Calculate course statistics
   const courseStats = useMemo(() => {
-    // Get all account IDs enrolled in this course
-    const enrolledAccountIds = activeEnrolments.map(e => {
-      const account = educationAccounts.find(acc => acc.holderId === e.holderId);
-      return account?.id;
-    }).filter(Boolean);
-    
     // Total collected from transactions for this course
     const courseTransactions = transactions.filter(
       t => t.courseId === course.id && t.type === 'charge' && t.status === 'completed'
@@ -112,20 +115,12 @@ const CourseDetailsContent: React.FC<CourseDetailsContentProps> = ({
     );
     const totalOutstanding = courseOutstanding.reduce((sum, c) => sum + c.amount, 0);
     
-    // Payment status breakdown
-    const paidCount = courseTransactions.length;
-    const unpaidCount = courseOutstanding.filter(c => c.status === 'unpaid').length;
-    const overdueCount = courseOutstanding.filter(c => c.status === 'overdue').length;
-    
     return {
       totalEnrolled: activeEnrolments.length,
       totalCollected,
       totalOutstanding,
-      paidCount,
-      unpaidCount,
-      overdueCount,
     };
-  }, [course.id, activeEnrolments, transactions, outstandingCharges, educationAccounts]);
+  }, [course.id, activeEnrolments, transactions, outstandingCharges]);
   
   // Get student list with account status and payment status
   const studentList = useMemo(() => {
@@ -148,6 +143,7 @@ const CourseDetailsContent: React.FC<CourseDetailsContentProps> = ({
       return {
         enrolmentId: enrolment.id,
         holderId: enrolment.holderId,
+        accountId: account?.id || '-',
         name: holder ? `${holder.firstName} ${holder.lastName}` : 'Unknown',
         accountStatus: account?.status || 'unknown',
         enrollmentDate: enrolment.startDate,
@@ -203,8 +199,65 @@ const CourseDetailsContent: React.FC<CourseDetailsContentProps> = ({
         </div>
       </DialogHeader>
       
+      {/* Course Configuration */}
+      <div className="py-4 border-b">
+        <Label className="text-base font-semibold mb-3 block">Course Configuration</Label>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+          <div>
+            <p className="text-muted-foreground">Fee</p>
+            <p className="font-medium">{formatCurrency(course.monthlyFee)}{course.paymentType === 'recurring' ? '/period' : ''}</p>
+          </div>
+          <div>
+            <p className="text-muted-foreground">Payment Type</p>
+            <p className="font-medium">{course.paymentType === 'one_time' ? 'One-time' : 'Recurring'}</p>
+          </div>
+          {course.paymentType === 'one_time' && course.paymentDeadlineDays && (
+            <div>
+              <p className="text-muted-foreground">Payment Deadline</p>
+              <p className="font-medium">{course.paymentDeadlineDays} days</p>
+            </div>
+          )}
+          {course.paymentType === 'recurring' && (
+            <>
+              <div>
+                <p className="text-muted-foreground">Billing Cycle</p>
+                <p className="font-medium">{course.billingCycle ? BILLING_CYCLE_LABELS_DETAIL[course.billingCycle] : '-'}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Billing Day</p>
+                <p className="font-medium">{course.billingDay ? `Day ${course.billingDay}` : '-'}</p>
+              </div>
+            </>
+          )}
+          {course.startDate && (
+            <div>
+              <p className="text-muted-foreground">Start Date</p>
+              <p className="font-medium">{course.startDate}</p>
+            </div>
+          )}
+          {course.endDate && (
+            <div>
+              <p className="text-muted-foreground">End Date</p>
+              <p className="font-medium">{course.endDate}</p>
+            </div>
+          )}
+          {course.durationMonths && (
+            <div>
+              <p className="text-muted-foreground">Duration</p>
+              <p className="font-medium">{course.durationMonths} month{course.durationMonths > 1 ? 's' : ''}</p>
+            </div>
+          )}
+        </div>
+        {course.description && (
+          <div className="mt-3">
+            <p className="text-muted-foreground text-sm">Description</p>
+            <p className="text-sm">{course.description}</p>
+          </div>
+        )}
+      </div>
+      
       {/* Course Summary Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 py-4">
+      <div className="grid grid-cols-3 gap-4 py-4">
         <Card>
           <CardContent className="pt-4 pb-3">
             <p className="text-2xl font-bold">{courseStats.totalEnrolled}</p>
@@ -221,15 +274,6 @@ const CourseDetailsContent: React.FC<CourseDetailsContentProps> = ({
           <CardContent className="pt-4 pb-3">
             <p className="text-2xl font-bold text-amber-600">{formatCurrency(courseStats.totalOutstanding)}</p>
             <p className="text-sm text-muted-foreground">Outstanding</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4 pb-3">
-            <div className="flex gap-2">
-              <span className="text-green-600 font-medium">{courseStats.paidCount} Paid</span>
-              <span className="text-amber-600 font-medium">{courseStats.unpaidCount} Pending</span>
-            </div>
-            <p className="text-sm text-muted-foreground">Payment Status</p>
           </CardContent>
         </Card>
       </div>
@@ -252,15 +296,17 @@ const CourseDetailsContent: React.FC<CourseDetailsContentProps> = ({
             <TableHeader>
               <TableRow>
                 <TableHead>Name</TableHead>
+                <TableHead>Account ID</TableHead>
                 <TableHead>Account Status</TableHead>
                 <TableHead>Enrollment Date</TableHead>
                 <TableHead>Payment Status</TableHead>
+                <TableHead className="w-[60px]"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {studentList.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                     No students enrolled in this course
                   </TableCell>
                 </TableRow>
@@ -268,9 +314,20 @@ const CourseDetailsContent: React.FC<CourseDetailsContentProps> = ({
                 studentList.map(student => (
                   <TableRow key={student.enrolmentId}>
                     <TableCell className="font-medium">{student.name}</TableCell>
+                    <TableCell className="font-mono text-sm">{student.accountId}</TableCell>
                     <TableCell>{getAccountStatusBadge(student.accountStatus)}</TableCell>
                     <TableCell>{student.enrollmentDate}</TableCell>
                     <TableCell>{getPaymentStatusBadge(student.paymentStatus)}</TableCell>
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-destructive hover:text-destructive"
+                        onClick={() => onRemoveStudent(student.enrolmentId)}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))
               )}
@@ -888,75 +945,18 @@ const CoursesPage: React.FC = () => {
         </TabsContent>
 
         <TabsContent value="fees">
-          <div className="grid gap-6 md:grid-cols-2 mb-6">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-lg">Total Charges</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-3xl font-bold text-primary">{chargeSummary.count}</p>
-                <p className="text-muted-foreground">fee charges</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-lg">Total Amount</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-3xl font-bold text-warning">{formatCurrency(chargeSummary.total)}</p>
-                <p className="text-muted-foreground">charged for courses</p>
-              </CardContent>
-            </Card>
-          </div>
-
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle>Charge Transactions</CardTitle>
-                <CardDescription>Detailed list of all fee charge transactions</CardDescription>
+            <CardContent className="pt-6">
+              <div className="text-center py-8">
+                <DollarSign className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                <p className="text-lg font-medium mb-2">Fee Charges Summary</p>
+                <p className="text-muted-foreground mb-4">
+                  View detailed charge transactions in the Courses Report page.
+                </p>
+                <Button variant="outline" onClick={() => window.location.href = '/admin/courses/report'}>
+                  Go to Courses Report
+                </Button>
               </div>
-              <Button variant="outline" onClick={() => handleExport('charges')}>
-                <Download className="h-4 w-4 mr-2" />
-                Export CSV
-              </Button>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Transaction ID</TableHead>
-                    <TableHead>Account</TableHead>
-                    <TableHead>Course / Period</TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {charges.slice(0, 20).map(txn => {
-                    const account = getEducationAccount(txn.accountId);
-                    const holder = account ? getAccountHolder(account.holderId) : null;
-
-                    return (
-                      <TableRow key={txn.id}>
-                        <TableCell>{formatDateTime(txn.createdAt)}</TableCell>
-                        <TableCell className="font-mono text-sm">{txn.id}</TableCell>
-                        <TableCell>
-                          {holder ? `${holder.firstName} ${holder.lastName}` : txn.accountId}
-                        </TableCell>
-                        <TableCell>
-                          <span>{txn.description}</span>
-                          {txn.period && (
-                            <span className="block text-sm text-muted-foreground">{txn.period}</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-right font-semibold text-destructive">
-                          {formatCurrency(txn.amount)}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
             </CardContent>
           </Card>
         </TabsContent>
@@ -985,35 +985,33 @@ const CoursesPage: React.FC = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Manage Students Dialog */}
+      {/* Add Students Dialog - Compact */}
       <Dialog open={manageStudentsDialogOpen} onOpenChange={setManageStudentsDialogOpen}>
-        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Manage Students - {selectedCourse?.name}</DialogTitle>
+            <DialogTitle>Add Students - {selectedCourse?.name}</DialogTitle>
             <DialogDescription>
               Search and add students to this course.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
+          <div className="space-y-3 py-2">
             {/* Student Search */}
-            <div className="space-y-2">
-              <Label>Search Students</Label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  placeholder="Search by name or ID..."
-                  value={studentSearchQuery}
-                  onChange={(e) => setStudentSearchQuery(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search by name or ID..."
+                value={studentSearchQuery}
+                onChange={(e) => setStudentSearchQuery(e.target.value)}
+                className="pl-10"
+              />
             </div>
 
             {/* Selected Students */}
             {selectedStudentIds.length > 0 && (
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-2 items-center">
                 {selectedStudentIds.map(id => {
                   const holder = getAccountHolder(id);
+                  const account = getEducationAccounts().find(acc => acc.holderId === id);
                   return (
                     <Badge key={id} variant="secondary" className="pl-2 pr-1 py-1">
                       {holder ? `${holder.firstName} ${holder.lastName}` : id}
@@ -1028,93 +1026,55 @@ const CoursesPage: React.FC = () => {
                     </Badge>
                   );
                 })}
-                <Button size="sm" onClick={handleAddSelectedStudents}>
-                  <Plus className="h-4 w-4 mr-1" /> Enroll Selected
-                </Button>
               </div>
             )}
 
             {/* Search Results */}
             {studentSearchQuery && (
-              <div className="border rounded-lg max-h-40 overflow-y-auto">
-                {filteredStudents.slice(0, 10).map(holder => {
-                  const isSelected = selectedStudentIds.includes(holder.id);
-                  const enrolments = selectedCourse ? getEnrolmentsByCourse(selectedCourse.id) : [];
-                  const isEnrolled = enrolments.some(e => e.holderId === holder.id && e.isActive);
-                  
-                  return (
-                    <div
-                      key={holder.id}
-                      className={`flex items-center justify-between p-3 cursor-pointer hover:bg-secondary/50 ${
-                        isSelected ? 'bg-primary/10' : ''
-                      } ${isEnrolled ? 'opacity-50' : ''}`}
-                      onClick={() => !isEnrolled && handleSelectStudent(holder.id, !isSelected)}
-                    >
-                      <div className="flex items-center gap-3">
-                        <Checkbox checked={isSelected} disabled={isEnrolled} />
-                        <div>
-                          <p className="font-medium">{holder.firstName} {holder.lastName}</p>
+              <div className="border rounded-lg max-h-48 overflow-y-auto">
+                {filteredStudents
+                  .filter(holder => {
+                    // Exclude already enrolled students
+                    const enrolments = selectedCourse ? getEnrolmentsByCourse(selectedCourse.id) : [];
+                    return !enrolments.some(e => e.holderId === holder.id && e.isActive);
+                  })
+                  .slice(0, 10).map(holder => {
+                    const isSelected = selectedStudentIds.includes(holder.id);
+                    const account = getEducationAccounts().find(acc => acc.holderId === holder.id);
+                    
+                    return (
+                      <div
+                        key={holder.id}
+                        className={`flex items-center justify-between p-2 cursor-pointer hover:bg-secondary/50 ${
+                          isSelected ? 'bg-primary/10' : ''
+                        }`}
+                        onClick={() => handleSelectStudent(holder.id, !isSelected)}
+                      >
+                        <div className="flex items-center gap-2">
+                          <Checkbox checked={isSelected} />
+                          <div>
+                            <p className="font-medium text-sm">{holder.firstName} {holder.lastName}</p>
+                            <p className="text-xs text-muted-foreground font-mono">{account?.id || holder.id}</p>
+                          </div>
                         </div>
                       </div>
-                      {isEnrolled && (
-                        <Badge variant="success">Already Enrolled</Badge>
-                      )}
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                {filteredStudents.filter(holder => {
+                  const enrolments = selectedCourse ? getEnrolmentsByCourse(selectedCourse.id) : [];
+                  return !enrolments.some(e => e.holderId === holder.id && e.isActive);
+                }).length === 0 && (
+                  <p className="text-sm text-muted-foreground text-center py-3">No students found</p>
+                )}
               </div>
             )}
-
-            {/* Current Students */}
-            <div className="space-y-2">
-              <Label>Currently Enrolled Students</Label>
-              <div className="border rounded-lg">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Student</TableHead>
-                      <TableHead>Start Date</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="w-[60px]"></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {selectedCourse && getEnrolmentsByCourse(selectedCourse.id)
-                      .filter(e => e.isActive)
-                      .map(enrolment => {
-                        const holder = getAccountHolder(enrolment.holderId);
-                        if (!holder) return null;
-
-                        return (
-                          <TableRow key={enrolment.id}>
-                            <TableCell className="font-medium">
-                              {holder.firstName} {holder.lastName}
-                            </TableCell>
-                            <TableCell>{enrolment.startDate}</TableCell>
-                            <TableCell>
-                              <Badge variant="success">Active</Badge>
-                            </TableCell>
-                            <TableCell>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="text-destructive"
-                                onClick={() => handleRemoveStudent(enrolment.id)}
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                  </TableBody>
-                </Table>
-              </div>
-            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setManageStudentsDialogOpen(false)}>
-              Close
+              Cancel
+            </Button>
+            <Button onClick={handleAddSelectedStudents} disabled={selectedStudentIds.length === 0}>
+              <Plus className="h-4 w-4 mr-1" /> Enroll {selectedStudentIds.length > 0 ? `(${selectedStudentIds.length})` : ''}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1133,6 +1093,9 @@ const CoursesPage: React.FC = () => {
               onManageStudents={() => {
                 setDetailsDialogOpen(false);
                 handleManageStudents(selectedCourse);
+              }}
+              onRemoveStudent={(enrolmentId) => {
+                handleRemoveStudent(enrolmentId);
               }}
               onClose={() => setDetailsDialogOpen(false)}
             />

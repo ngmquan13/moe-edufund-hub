@@ -4,8 +4,9 @@ import { AdminLayout } from '@/components/layouts/AdminLayout';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { StatCard } from '@/components/shared/StatCard';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Table,
   TableBody,
@@ -23,8 +24,8 @@ import {
 } from '@/components/ui/select';
 import { toast } from '@/hooks/use-toast';
 import { useDataStore } from '@/hooks/useDataStore';
-import { getCourses, getEnrolments, getTransactions } from '@/lib/dataStore';
-import { formatCurrency, formatDate } from '@/lib/data';
+import { getCourses, getEnrolments, getTransactions, getEducationAccount, getAccountHolder } from '@/lib/dataStore';
+import { formatCurrency, formatDate, formatDateTime } from '@/lib/data';
 
 const CoursesReportPage: React.FC = () => {
   const courses = useDataStore(getCourses);
@@ -39,6 +40,11 @@ const CoursesReportPage: React.FC = () => {
     const uniqueProviders = [...new Set(courses.map(c => c.provider))];
     return uniqueProviders.sort();
   }, [courses]);
+
+  // Charge transactions
+  const charges = useMemo(() => {
+    return transactions.filter(t => t.type === 'charge' && t.status === 'completed');
+  }, [transactions]);
 
   // Calculate statistics for each course
   const courseStats = useMemo(() => {
@@ -89,33 +95,63 @@ const CoursesReportPage: React.FC = () => {
   }, [courses, enrolments, transactions]);
 
   // Export to Excel/CSV
-  const handleExport = (format: 'csv' | 'excel') => {
-    const headers = [
-      'Course Code',
-      'Course Name',
-      'Provider',
-      'Monthly Fee',
-      'Status',
-      'Total Enrolments',
-      'Active Enrolments',
-      'Total Revenue',
-      'Start Date',
-      'End Date',
-    ];
+  const handleExport = (format: 'csv' | 'excel', type: 'courses' | 'charges' = 'courses') => {
+    if (type === 'courses') {
+      const headers = [
+        'Course Code',
+        'Course Name',
+        'Provider',
+        'Monthly Fee',
+        'Status',
+        'Total Enrolments',
+        'Active Enrolments',
+        'Total Revenue',
+        'Start Date',
+        'End Date',
+      ];
 
-    const rows = filteredCourses.map(course => [
-      course.code,
-      course.name,
-      course.provider,
-      course.monthlyFee,
-      course.isActive ? 'Active' : 'Inactive',
-      course.totalEnrolments,
-      course.activeEnrolments,
-      course.totalRevenue,
-      course.startDate || '',
-      course.endDate || '',
-    ]);
+      const rows = filteredCourses.map(course => [
+        course.code,
+        course.name,
+        course.provider,
+        course.monthlyFee,
+        course.isActive ? 'Active' : 'Inactive',
+        course.totalEnrolments,
+        course.activeEnrolments,
+        course.totalRevenue,
+        course.startDate || '',
+        course.endDate || '',
+      ]);
 
+      exportData(headers, rows, 'courses_report', format);
+    } else {
+      const headers = [
+        'Date',
+        'Transaction ID',
+        'Account Holder',
+        'Course',
+        'Period',
+        'Amount',
+      ];
+
+      const rows = charges.map(txn => {
+        const account = getEducationAccount(txn.accountId);
+        const holder = account ? getAccountHolder(account.holderId) : null;
+        return [
+          formatDateTime(txn.createdAt),
+          txn.id,
+          holder ? `${holder.firstName} ${holder.lastName}` : txn.accountId,
+          txn.description || '',
+          txn.period || '',
+          Math.abs(txn.amount),
+        ];
+      });
+
+      exportData(headers, rows, 'charge_transactions', format);
+    }
+  };
+
+  const exportData = (headers: string[], rows: any[][], filename: string, format: 'csv' | 'excel') => {
     if (format === 'csv') {
       const csvContent = [
         headers.join(','),
@@ -126,7 +162,7 @@ const CoursesReportPage: React.FC = () => {
       const link = document.createElement('a');
       const url = URL.createObjectURL(blob);
       link.setAttribute('href', url);
-      link.setAttribute('download', `courses_report_${new Date().toISOString().split('T')[0]}.csv`);
+      link.setAttribute('download', `${filename}_${new Date().toISOString().split('T')[0]}.csv`);
       link.style.visibility = 'hidden';
       document.body.appendChild(link);
       link.click();
@@ -134,10 +170,9 @@ const CoursesReportPage: React.FC = () => {
 
       toast({
         title: "Export Successful",
-        description: "Courses report has been exported as CSV.",
+        description: `Report has been exported as CSV.`,
       });
     } else {
-      // For Excel, we'll create a more formatted CSV that Excel can open
       const excelContent = [
         headers.join('\t'),
         ...rows.map(row => row.join('\t'))
@@ -147,7 +182,7 @@ const CoursesReportPage: React.FC = () => {
       const link = document.createElement('a');
       const url = URL.createObjectURL(blob);
       link.setAttribute('href', url);
-      link.setAttribute('download', `courses_report_${new Date().toISOString().split('T')[0]}.xls`);
+      link.setAttribute('download', `${filename}_${new Date().toISOString().split('T')[0]}.xls`);
       link.style.visibility = 'hidden';
       document.body.appendChild(link);
       link.click();
@@ -155,7 +190,7 @@ const CoursesReportPage: React.FC = () => {
 
       toast({
         title: "Export Successful",
-        description: "Courses report has been exported as Excel file.",
+        description: `Report has been exported as Excel file.`,
       });
     }
   };
@@ -164,7 +199,7 @@ const CoursesReportPage: React.FC = () => {
     <AdminLayout>
       <PageHeader 
         title="Courses Report" 
-        description="View course statistics and export reports"
+        description="View course statistics and charge transactions"
       >
         <Button variant="outline" onClick={() => handleExport('csv')}>
           <Download className="h-4 w-4 mr-2" />
@@ -215,122 +250,212 @@ const CoursesReportPage: React.FC = () => {
         />
       </div>
 
-      {/* Filters */}
-      <Card className="mb-6">
-        <CardContent className="pt-6">
-          <div className="flex flex-col gap-4 md:flex-row md:items-center">
-            <div className="flex gap-3 flex-1">
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[160px]">
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Statuses</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="inactive">Inactive</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={providerFilter} onValueChange={setProviderFilter}>
-                <SelectTrigger className="w-[250px]">
-                  <SelectValue placeholder="Provider" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Providers</SelectItem>
-                  {providers.map(provider => (
-                    <SelectItem key={provider} value={provider}>{provider}</SelectItem>
+      <Tabs defaultValue="statistics" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="statistics">Course Statistics</TabsTrigger>
+          <TabsTrigger value="transactions">Charge Transactions</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="statistics">
+          {/* Filters */}
+          <Card className="mb-6">
+            <CardContent className="pt-6">
+              <div className="flex flex-col gap-4 md:flex-row md:items-center">
+                <div className="flex gap-3 flex-1">
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger className="w-[160px]">
+                      <SelectValue placeholder="Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Statuses</SelectItem>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="inactive">Inactive</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Select value={providerFilter} onValueChange={setProviderFilter}>
+                    <SelectTrigger className="w-[250px]">
+                      <SelectValue placeholder="Provider" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Providers</SelectItem>
+                      {providers.map(provider => (
+                        <SelectItem key={provider} value={provider}>{provider}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Showing {filteredCourses.length} of {courses.length} courses
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Courses Table */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <BarChart3 className="h-4 w-4" />
+                Course Statistics
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Course Code</TableHead>
+                    <TableHead>Course Name</TableHead>
+                    <TableHead>Provider</TableHead>
+                    <TableHead className="text-right">Monthly Fee</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-center">Total Enrolments</TableHead>
+                    <TableHead className="text-center">Active Enrolments</TableHead>
+                    <TableHead className="text-right">Total Revenue</TableHead>
+                    <TableHead>Start Date</TableHead>
+                    <TableHead>End Date</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredCourses.map((course) => (
+                    <TableRow key={course.id}>
+                      <TableCell className="font-mono text-sm">{course.code}</TableCell>
+                      <TableCell className="font-medium">{course.name}</TableCell>
+                      <TableCell className="text-sm">{course.provider}</TableCell>
+                      <TableCell className="text-right">{formatCurrency(course.monthlyFee)}</TableCell>
+                      <TableCell>
+                        <Badge variant={course.isActive ? 'success' : 'secondary'}>
+                          {course.isActive ? 'Active' : 'Inactive'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-center">{course.totalEnrolments}</TableCell>
+                      <TableCell className="text-center">{course.activeEnrolments}</TableCell>
+                      <TableCell className="text-right font-medium">{formatCurrency(course.totalRevenue)}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {course.startDate ? formatDate(course.startDate) : '-'}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {course.endDate ? formatDate(course.endDate) : '-'}
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Showing {filteredCourses.length} of {courses.length} courses
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+                  {filteredCourses.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
+                        No courses found matching the filters.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
 
-      {/* Courses Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <BarChart3 className="h-4 w-4" />
-            Course Statistics
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Course Code</TableHead>
-                <TableHead>Course Name</TableHead>
-                <TableHead>Provider</TableHead>
-                <TableHead className="text-right">Monthly Fee</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-center">Total Enrolments</TableHead>
-                <TableHead className="text-center">Active Enrolments</TableHead>
-                <TableHead className="text-right">Total Revenue</TableHead>
-                <TableHead>Start Date</TableHead>
-                <TableHead>End Date</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredCourses.map((course) => (
-                <TableRow key={course.id}>
-                  <TableCell className="font-mono text-sm">{course.code}</TableCell>
-                  <TableCell className="font-medium">{course.name}</TableCell>
-                  <TableCell className="text-sm">{course.provider}</TableCell>
-                  <TableCell className="text-right">{formatCurrency(course.monthlyFee)}</TableCell>
-                  <TableCell>
-                    <Badge variant={course.isActive ? 'success' : 'secondary'}>
-                      {course.isActive ? 'Active' : 'Inactive'}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-center">{course.totalEnrolments}</TableCell>
-                  <TableCell className="text-center">{course.activeEnrolments}</TableCell>
-                  <TableCell className="text-right font-medium">{formatCurrency(course.totalRevenue)}</TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
-                    {course.startDate ? formatDate(course.startDate) : '-'}
-                  </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
-                    {course.endDate ? formatDate(course.endDate) : '-'}
-                  </TableCell>
-                </TableRow>
-              ))}
-              {filteredCourses.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
-                    No courses found matching the filters.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+          {/* Summary Footer */}
+          <Card className="mt-6">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">Report Summary</p>
+                  <p className="text-lg font-semibold">
+                    {filteredCourses.length} courses • {filteredCourses.reduce((sum, c) => sum + c.activeEnrolments, 0)} active enrolments • {formatCurrency(filteredCourses.reduce((sum, c) => sum + c.totalRevenue, 0))} total revenue
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={() => handleExport('csv')}>
+                    <Download className="h-4 w-4 mr-2" />
+                    CSV
+                  </Button>
+                  <Button size="sm" onClick={() => handleExport('excel')}>
+                    <FileSpreadsheet className="h-4 w-4 mr-2" />
+                    Excel
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-      {/* Summary Footer */}
-      <Card className="mt-6">
-        <CardContent className="pt-6">
-          <div className="flex items-center justify-between">
-            <div className="space-y-1">
-              <p className="text-sm text-muted-foreground">Report Summary</p>
-              <p className="text-lg font-semibold">
-                {filteredCourses.length} courses • {filteredCourses.reduce((sum, c) => sum + c.activeEnrolments, 0)} active enrolments • {formatCurrency(filteredCourses.reduce((sum, c) => sum + c.totalRevenue, 0))} total revenue
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={() => handleExport('csv')}>
-                <Download className="h-4 w-4 mr-2" />
-                CSV
-              </Button>
-              <Button size="sm" onClick={() => handleExport('excel')}>
-                <FileSpreadsheet className="h-4 w-4 mr-2" />
-                Excel
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+        <TabsContent value="transactions">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Charge Transactions</CardTitle>
+                <CardDescription>Detailed list of all fee charge transactions</CardDescription>
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={() => handleExport('csv', 'charges')}>
+                  <Download className="h-4 w-4 mr-2" />
+                  Export CSV
+                </Button>
+                <Button size="sm" onClick={() => handleExport('excel', 'charges')}>
+                  <FileSpreadsheet className="h-4 w-4 mr-2" />
+                  Export Excel
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Transaction ID</TableHead>
+                    <TableHead>Account Holder</TableHead>
+                    <TableHead>Course / Period</TableHead>
+                    <TableHead className="text-right">Amount</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {charges.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                        No charge transactions found.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    charges.map(txn => {
+                      const account = getEducationAccount(txn.accountId);
+                      const holder = account ? getAccountHolder(account.holderId) : null;
+
+                      return (
+                        <TableRow key={txn.id}>
+                          <TableCell>{formatDateTime(txn.createdAt)}</TableCell>
+                          <TableCell className="font-mono text-sm">{txn.id}</TableCell>
+                          <TableCell>
+                            {holder ? `${holder.firstName} ${holder.lastName}` : txn.accountId}
+                          </TableCell>
+                          <TableCell>
+                            <span>{txn.description}</span>
+                            {txn.period && (
+                              <span className="block text-sm text-muted-foreground">{txn.period}</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right font-semibold text-destructive">
+                            {formatCurrency(txn.amount)}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+
+          {/* Summary */}
+          <Card className="mt-6">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">Transactions Summary</p>
+                  <p className="text-lg font-semibold">
+                    {charges.length} transactions • {formatCurrency(Math.abs(charges.reduce((sum, t) => sum + t.amount, 0)))} total charged
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </AdminLayout>
   );
 };
