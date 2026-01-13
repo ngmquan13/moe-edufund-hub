@@ -1,11 +1,12 @@
 // Demo data for the MoE Education Account System
 
 export type UserRole = 'admin' | 'finance' | 'school_ops' | 'customer_service' | 'it_support';
-export type AccountStatus = 'active' | 'suspended' | 'closed' | 'pending';
+export type AccountStatus = 'active' | 'suspended' | 'closed' | 'not_active' | 'pending_activation';
 export type TransactionType = 'top_up' | 'charge' | 'payment';
 export type TransactionStatus = 'completed' | 'pending' | 'failed';
 export type PaymentStatus = 'paid' | 'unpaid' | 'overdue' | 'partial';
 export type SchoolingStatus = 'in_school' | 'not_in_school';
+export type PerformerRole = 'admin' | 'finance' | 'school_ops' | 'customer_service' | 'it_support' | 'student' | 'system';
 
 // Common education providers for autocomplete
 export const EDUCATION_PROVIDERS = [
@@ -29,7 +30,7 @@ export const EDUCATION_PROVIDERS = [
   'SIM Global Education',
 ];
 
-export type AccountActivationStatus = 'non_active' | 'active_immediately' | 'scheduled';
+export type AccountActivationStatus = 'not_active' | 'active_immediately' | 'scheduled';
 
 export interface AccountHolder {
   id: string;
@@ -131,6 +132,7 @@ export interface AuditLog {
   entityId: string;
   userId: string;
   userName: string;
+  userRole?: PerformerRole;
   details: string;
   createdAt: string;
 }
@@ -170,7 +172,7 @@ export const educationAccounts: EducationAccount[] = [
   { id: 'EA007', holderId: 'AH007', balance: 320.00, status: 'suspended', openedAt: '2023-09-15', suspendedAt: '2024-09-20', closedAt: null, lastTopUpDate: '2024-08-01' },
   { id: 'EA008', holderId: 'AH008', balance: 1100.00, status: 'active', openedAt: '2024-02-20', suspendedAt: null, closedAt: null, lastTopUpDate: '2024-11-30' },
   { id: 'EA009', holderId: 'AH009', balance: 200.00, status: 'active', openedAt: '2022-11-10', suspendedAt: null, closedAt: null, lastTopUpDate: '2024-09-15' },
-  { id: 'EA010', holderId: 'AH010', balance: 1800.00, status: 'pending', openedAt: '2024-08-15', suspendedAt: null, closedAt: null, lastTopUpDate: '2024-12-01' },
+  { id: 'EA010', holderId: 'AH010', balance: 1800.00, status: 'pending_activation', activationStatus: 'scheduled', scheduledActivationDate: '2025-02-01', openedAt: '2024-08-15', suspendedAt: null, closedAt: null, lastTopUpDate: '2024-12-01' },
   { id: 'EA011', holderId: 'AH011', balance: 650.00, status: 'active', openedAt: '2023-04-22', suspendedAt: null, closedAt: null, lastTopUpDate: '2024-11-01' },
   { id: 'EA012', holderId: 'AH012', balance: 50.00, status: 'suspended', openedAt: '2021-07-18', suspendedAt: '2023-08-15', closedAt: null, lastTopUpDate: '2023-06-01' },
 ];
@@ -324,9 +326,23 @@ export const getStatusLabel = (status: AccountStatus) => {
     active: 'Active',
     suspended: 'Suspended',
     closed: 'Closed',
-    pending: 'Pending'
+    not_active: 'Not-active',
+    pending_activation: 'Pending Activation'
   };
-  return labels[status];
+  return labels[status] || status;
+};
+
+export const getRoleBadgeLabel = (role: PerformerRole) => {
+  const labels: Record<PerformerRole, string> = {
+    admin: 'Admin',
+    finance: 'Finance',
+    school_ops: 'School Ops',
+    customer_service: 'CS',
+    it_support: 'IT',
+    student: 'Student',
+    system: 'System'
+  };
+  return labels[role] || role;
 };
 
 export const getSchoolingLabel = (status: SchoolingStatus) => {

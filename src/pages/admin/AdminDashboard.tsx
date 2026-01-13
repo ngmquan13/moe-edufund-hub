@@ -337,8 +337,8 @@ const AdminDashboard: React.FC = () => {
       });
     }
     
-    // Reminder: Pending accounts
-    const pendingAccounts = educationAccounts.filter(ea => ea.status === 'pending');
+    // Reminder: Pending activation accounts
+    const pendingAccounts = educationAccounts.filter(ea => ea.status === 'pending_activation');
     if (pendingAccounts.length > 0) {
       items.push({
         id: 'pending-accounts',
