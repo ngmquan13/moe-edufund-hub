@@ -104,6 +104,7 @@ const CoursesPage: React.FC = () => {
   const [formBillingCycle, setFormBillingCycle] = useState<BillingCycle>('monthly');
   const [formStartDate, setFormStartDate] = useState<Date | undefined>();
   const [formEndDate, setFormEndDate] = useState<Date | undefined>();
+  const [formPaymentDeadlineDays, setFormPaymentDeadlineDays] = useState('');
   
   // Student search states
   const [studentSearchQuery, setStudentSearchQuery] = useState('');
@@ -135,6 +136,7 @@ const CoursesPage: React.FC = () => {
     setFormBillingCycle('monthly');
     setFormStartDate(undefined);
     setFormEndDate(undefined);
+    setFormPaymentDeadlineDays('');
   };
 
   const handleCreateCourse = () => {
@@ -166,6 +168,7 @@ const CoursesPage: React.FC = () => {
       isActive: formActive,
       paymentType: formPaymentType,
       billingCycle: formPaymentType === 'recurring' ? formBillingCycle : undefined,
+      paymentDeadlineDays: formPaymentDeadlineDays ? parseInt(formPaymentDeadlineDays, 10) : undefined,
       durationMonths,
     };
 
@@ -192,6 +195,7 @@ const CoursesPage: React.FC = () => {
     setFormBillingCycle(course.billingCycle || 'monthly');
     setFormStartDate(course.startDate ? new Date(course.startDate) : undefined);
     setFormEndDate(course.endDate ? new Date(course.endDate) : undefined);
+    setFormPaymentDeadlineDays(course.paymentDeadlineDays ? course.paymentDeadlineDays.toString() : '');
     setEditDialogOpen(true);
   };
 
@@ -217,6 +221,7 @@ const CoursesPage: React.FC = () => {
       isActive: formActive,
       paymentType: formPaymentType,
       billingCycle: formPaymentType === 'recurring' ? formBillingCycle : undefined,
+      paymentDeadlineDays: formPaymentDeadlineDays ? parseInt(formPaymentDeadlineDays, 10) : undefined,
       startDate: formStartDate ? formStartDate.toISOString().split('T')[0] : undefined,
       endDate: formEndDate ? formEndDate.toISOString().split('T')[0] : undefined,
       durationMonths,
@@ -443,6 +448,22 @@ const CoursesPage: React.FC = () => {
           </Select>
         </div>
       )}
+
+      {/* Payment Deadline - for both payment types */}
+      <div className="space-y-2">
+        <Label htmlFor="paymentDeadline">Payment Deadline (Days)</Label>
+        <Input
+          id="paymentDeadline"
+          type="number"
+          placeholder="e.g., 14"
+          value={formPaymentDeadlineDays}
+          onChange={(e) => setFormPaymentDeadlineDays(e.target.value)}
+          min="1"
+        />
+        <p className="text-xs text-muted-foreground">
+          Number of days after enrolment by which payment must be made. Status changes from Pending to Overdue if not paid.
+        </p>
+      </div>
 
       <div className="flex items-center justify-between">
         <Label htmlFor="active">Active</Label>
