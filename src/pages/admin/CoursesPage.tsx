@@ -1,6 +1,6 @@
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Edit, Users, Search, X, Upload, Download, DollarSign, Calendar as CalendarIcon, Eye, UserPlus } from 'lucide-react';
+import { Plus, Edit, Users, Search, X, Upload, Download, DollarSign, Calendar as CalendarIcon, Eye, UserPlus, AlertCircle } from 'lucide-react';
 import { AdminLayout } from '@/components/layouts/AdminLayout';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Button } from '@/components/ui/button';
@@ -12,7 +12,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
-import { format } from 'date-fns';
+import { format, differenceInMonths, addMonths, isBefore, isAfter, isEqual } from 'date-fns';
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -40,6 +40,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { toast } from '@/hooks/use-toast';
 import { useDataStore } from '@/hooks/useDataStore';
 import { 
@@ -80,6 +86,14 @@ const BILLING_CYCLE_LABELS_COMPACT: Record<BillingCycle, string> = {
   annually: 'Annually',
 };
 
+// Minimum duration requirements for each billing cycle (Rule of 2)
+const BILLING_CYCLE_MIN_MONTHS: Record<BillingCycle, number> = {
+  monthly: 2,      // D >= 2 months
+  quarterly: 6,    // D >= 6 months (2 quarters)
+  bi_annually: 12, // D >= 12 months (2 bi-annual periods)
+  annually: 24,    // D >= 24 months (2 years)
+};
+
 const CoursesPage: React.FC = () => {
   const navigate = useNavigate();
   const courses = useDataStore(getCourses);
@@ -109,8 +123,66 @@ const CoursesPage: React.FC = () => {
   // Student search states
   const [studentSearchQuery, setStudentSearchQuery] = useState('');
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
+  const [billingCycleError, setBillingCycleError] = useState<string | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Calculate duration in months between start and end dates
+  const durationMonths = useMemo(() => {
+    if (!formStartDate || !formEndDate) return 0;
+    return differenceInMonths(formEndDate, formStartDate);
+  }, [formStartDate, formEndDate]);
+
+  // Determine which billing cycles are enabled based on duration
+  const billingCycleValidation = useMemo(() => {
+    const validation: Record<BillingCycle, { enabled: boolean; minMonths: number }> = {
+      monthly: { enabled: durationMonths >= BILLING_CYCLE_MIN_MONTHS.monthly, minMonths: BILLING_CYCLE_MIN_MONTHS.monthly },
+      quarterly: { enabled: durationMonths >= BILLING_CYCLE_MIN_MONTHS.quarterly, minMonths: BILLING_CYCLE_MIN_MONTHS.quarterly },
+      bi_annually: { enabled: durationMonths >= BILLING_CYCLE_MIN_MONTHS.bi_annually, minMonths: BILLING_CYCLE_MIN_MONTHS.bi_annually },
+      annually: { enabled: durationMonths >= BILLING_CYCLE_MIN_MONTHS.annually, minMonths: BILLING_CYCLE_MIN_MONTHS.annually },
+    };
+    return validation;
+  }, [durationMonths]);
+
+  // Check if current billing cycle is valid when dates change
+  useEffect(() => {
+    if (formPaymentType === 'recurring' && formStartDate && formEndDate) {
+      const currentCycleValidation = billingCycleValidation[formBillingCycle];
+      if (!currentCycleValidation.enabled) {
+        setBillingCycleError(`Duration too short. Minimum ${currentCycleValidation.minMonths} months required for ${BILLING_CYCLE_LABELS[formBillingCycle]}.`);
+        setFormBillingCycle('monthly'); // Reset to monthly as fallback
+      } else {
+        setBillingCycleError(null);
+      }
+    } else {
+      setBillingCycleError(null);
+    }
+  }, [formStartDate, formEndDate, durationMonths, billingCycleValidation]);
+
+  // Calculate payment schedule preview
+  const paymentSchedule = useMemo(() => {
+    if (!formStartDate || !formEndDate || formPaymentType !== 'recurring') return [];
+    
+    const cycleMonths = BILLING_CYCLE_DURATIONS[formBillingCycle];
+    const schedule: Date[] = [];
+    let currentDate = new Date(formStartDate);
+    
+    while (isBefore(currentDate, formEndDate) || isEqual(currentDate, formEndDate)) {
+      schedule.push(new Date(currentDate));
+      currentDate = addMonths(currentDate, cycleMonths);
+    }
+    
+    return schedule;
+  }, [formStartDate, formEndDate, formBillingCycle, formPaymentType]);
+
+  // Check if form is valid for submission
+  const isFormValid = useMemo(() => {
+    const baseValid = formCode && formName && formProvider && formFee && formDescription;
+    if (formPaymentType === 'recurring' && formStartDate && formEndDate) {
+      return baseValid && billingCycleValidation[formBillingCycle].enabled && !billingCycleError;
+    }
+    return baseValid;
+  }, [formCode, formName, formProvider, formFee, formDescription, formPaymentType, formStartDate, formEndDate, formBillingCycle, billingCycleValidation, billingCycleError]);
 
   const filteredCourses = courses.filter(course =>
     course.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -137,6 +209,7 @@ const CoursesPage: React.FC = () => {
     setFormStartDate(undefined);
     setFormEndDate(undefined);
     setFormPaymentDeadlineDays('');
+    setBillingCycleError(null);
   };
 
   const handleCreateCourse = () => {
@@ -432,20 +505,61 @@ const CoursesPage: React.FC = () => {
         </Select>
       </div>
 
-      {/* Recurring Payment: Billing Cycle */}
+      {/* Recurring Payment: Billing Cycle with Validation */}
       {formPaymentType === 'recurring' && (
         <div className="space-y-2">
           <Label>Billing Cycle</Label>
-          <Select value={formBillingCycle} onValueChange={(v) => setFormBillingCycle(v as BillingCycle)}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {Object.entries(BILLING_CYCLE_LABELS).map(([value, label]) => (
-                <SelectItem key={value} value={value}>{label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <TooltipProvider>
+            <Select 
+              value={formBillingCycle} 
+              onValueChange={(v) => {
+                setFormBillingCycle(v as BillingCycle);
+                setBillingCycleError(null);
+              }}
+            >
+              <SelectTrigger className={billingCycleError ? "border-destructive" : ""}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {(Object.entries(BILLING_CYCLE_LABELS) as [BillingCycle, string][]).map(([value, label]) => {
+                  const validation = billingCycleValidation[value];
+                  const isDisabled = formStartDate && formEndDate && !validation.enabled;
+                  
+                  return (
+                    <Tooltip key={value}>
+                      <TooltipTrigger asChild>
+                        <div>
+                          <SelectItem 
+                            value={value} 
+                            disabled={!!isDisabled}
+                            className={isDisabled ? "text-muted-foreground opacity-50" : ""}
+                          >
+                            {label}
+                          </SelectItem>
+                        </div>
+                      </TooltipTrigger>
+                      {isDisabled && (
+                        <TooltipContent side="right" className="bg-popover border shadow-md">
+                          <p>Min {validation.minMonths} months required</p>
+                        </TooltipContent>
+                      )}
+                    </Tooltip>
+                  );
+                })}
+              </SelectContent>
+            </Select>
+          </TooltipProvider>
+          {billingCycleError && (
+            <div className="flex items-center gap-1.5 text-destructive text-xs">
+              <AlertCircle className="h-3.5 w-3.5" />
+              <span>{billingCycleError}</span>
+            </div>
+          )}
+          {formStartDate && formEndDate && durationMonths > 0 && (
+            <p className="text-xs text-muted-foreground">
+              Course duration: {durationMonths} month{durationMonths !== 1 ? 's' : ''}
+            </p>
+          )}
         </div>
       )}
 
@@ -546,21 +660,66 @@ const CoursesPage: React.FC = () => {
                 Add Course
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-md">
+            <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>Create New Course</DialogTitle>
+                <DialogTitle className="text-primary">Create New Course</DialogTitle>
                 <DialogDescription>
                   Add a new course to the education account system.
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
                 <CourseFormFields />
+                
+                {/* Payment Schedule Preview */}
+                {formPaymentType === 'recurring' && formStartDate && formEndDate && billingCycleValidation[formBillingCycle].enabled && paymentSchedule.length > 0 && (
+                  <div className="space-y-3 mt-4">
+                    <Label className="text-primary font-semibold">Payment Schedule Preview</Label>
+                    <div className="bg-muted/50 border border-border rounded-lg p-4 space-y-3">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">Billing Cycle:</span>
+                        <Badge variant="secondary">{BILLING_CYCLE_LABELS[formBillingCycle]}</Badge>
+                      </div>
+                      <div className="border-t border-border pt-3">
+                        <p className="text-xs text-muted-foreground mb-2 font-medium">Billing Dates:</p>
+                        <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto">
+                          {paymentSchedule.map((date, index) => (
+                            <div 
+                              key={index} 
+                              className="flex items-center gap-2 text-sm bg-background rounded px-2 py-1.5 border"
+                            >
+                              <CalendarIcon className="h-3.5 w-3.5 text-primary" />
+                              <span className="font-mono text-xs">{format(date, "dd MMM yyyy")}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="border-t border-border pt-3 flex items-center justify-between">
+                        <span className="text-sm font-medium">Total Payments:</span>
+                        <Badge className="bg-primary text-primary-foreground">
+                          {paymentSchedule.length} Payment{paymentSchedule.length !== 1 ? 's' : ''}
+                        </Badge>
+                      </div>
+                      {formFee && (
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground">Total Amount:</span>
+                          <span className="font-semibold text-primary">
+                            {formatCurrency(parseFloat(formFee) * paymentSchedule.length)}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
                   Cancel
                 </Button>
-                <Button onClick={handleCreateCourse}>
+                <Button 
+                  onClick={handleCreateCourse} 
+                  disabled={!isFormValid}
+                  className="bg-primary hover:bg-primary/90"
+                >
                   Create Course
                 </Button>
               </DialogFooter>
