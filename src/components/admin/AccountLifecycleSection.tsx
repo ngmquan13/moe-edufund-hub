@@ -67,10 +67,13 @@ const existingNrics = new Set(['S1234567A', 'S2345678B', 'S3456789C']);
 const AccountLifecycleSection: React.FC = () => {
   const currentYear = new Date().getFullYear();
   const birthYear15 = currentYear - 15;
+  const birthYear16 = currentYear - 16;
+  const birthYear30 = currentYear - 30;
   
   // Configuration dates
   const [fetchScheduleDate, setFetchScheduleDate] = useState<Date | undefined>();
   const [activationScheduleDate, setActivationScheduleDate] = useState<Date | undefined>();
+  const [closeScheduleDate, setCloseScheduleDate] = useState<Date | undefined>();
   
   // Loading states
   const [simulationLoading, setSimulationLoading] = useState(false);
@@ -117,7 +120,7 @@ const AccountLifecycleSection: React.FC = () => {
     
     toast({
       title: "Configuration Saved",
-      description: `Fetch scheduled for ${fetchScheduleDate ? format(fetchScheduleDate, 'dd MMM yyyy') : 'not set'}. Activation scheduled for ${activationScheduleDate ? format(activationScheduleDate, 'dd MMM yyyy') : 'not set'}.`,
+      description: `Fetch: ${fetchScheduleDate ? format(fetchScheduleDate, 'dd MMM yyyy') : 'not set'}, Activation: ${activationScheduleDate ? format(activationScheduleDate, 'dd MMM yyyy') : 'not set'}, Close: ${closeScheduleDate ? format(closeScheduleDate, 'dd MMM yyyy') : 'not set'}.`,
     });
   };
 
@@ -218,15 +221,19 @@ const AccountLifecycleSection: React.FC = () => {
           </CardHeader>
           <CardContent className="space-y-4">
             {/* Helper Text */}
-            <div className="bg-muted/50 rounded-lg p-3 border border-muted">
+            <div className="bg-muted/50 rounded-lg p-3 border border-muted space-y-1.5">
               <p className="text-xs text-muted-foreground">
-                <span className="font-medium text-foreground">Auto-targeting:</span> System will automatically target citizens turning 15 this year 
-                <Badge variant="secondary" className="ml-2 text-[10px]">Birth Year: {birthYear15}</Badge>
+                <span className="font-medium text-foreground">Auto-targeting:</span> System will automatically target citizens based on age thresholds:
               </p>
+              <div className="flex flex-wrap gap-2">
+                <Badge variant="secondary" className="text-[10px]">Fetch 15yo: {birthYear15}</Badge>
+                <Badge variant="outline" className="text-[10px]">Activate 16yo: {birthYear16}</Badge>
+                <Badge variant="destructive" className="text-[10px]">Close 30yo: {birthYear30}</Badge>
+              </div>
             </div>
             
             {/* Date Pickers Row */}
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-3">
               {/* Fetch Schedule Date */}
               <div className="space-y-2">
                 <label className="text-xs font-medium text-muted-foreground">
@@ -242,7 +249,7 @@ const AccountLifecycleSection: React.FC = () => {
                       )}
                     >
                       <Calendar className="mr-2 h-4 w-4" />
-                      {fetchScheduleDate ? format(fetchScheduleDate, "dd MMM yyyy") : "Select fetch date"}
+                      {fetchScheduleDate ? format(fetchScheduleDate, "dd MMM yyyy") : "Select date"}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
@@ -272,7 +279,7 @@ const AccountLifecycleSection: React.FC = () => {
                       )}
                     >
                       <Calendar className="mr-2 h-4 w-4" />
-                      {activationScheduleDate ? format(activationScheduleDate, "dd MMM yyyy") : "Select activation date"}
+                      {activationScheduleDate ? format(activationScheduleDate, "dd MMM yyyy") : "Select date"}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
@@ -280,6 +287,36 @@ const AccountLifecycleSection: React.FC = () => {
                       mode="single"
                       selected={activationScheduleDate}
                       onSelect={setActivationScheduleDate}
+                      initialFocus
+                      className={cn("p-3 pointer-events-auto")}
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+              
+              {/* Close Schedule Date */}
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-muted-foreground">
+                  Close Schedule Date
+                </label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left h-9 text-sm",
+                        !closeScheduleDate && "text-muted-foreground"
+                      )}
+                    >
+                      <Calendar className="mr-2 h-4 w-4" />
+                      {closeScheduleDate ? format(closeScheduleDate, "dd MMM yyyy") : "Select date"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <CalendarComponent
+                      mode="single"
+                      selected={closeScheduleDate}
+                      onSelect={setCloseScheduleDate}
                       initialFocus
                       className={cn("p-3 pointer-events-auto")}
                     />
