@@ -429,7 +429,7 @@ const AdminDashboard: React.FC = () => {
 
   return (
     <AdminLayout>
-      <PageHeader title="Dashboard Management" description="Overview of Education Account operations" />
+      <PageHeader title="Dashboard" description="Overview of Education Account operations" />
 
       {/* Three Column Layout */}
       <div className="grid gap-6 lg:grid-cols-3 mb-6">
