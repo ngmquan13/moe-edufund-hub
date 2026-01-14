@@ -1,6 +1,6 @@
 import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Edit, Users, Search, X, Upload, Download, DollarSign, Calendar as CalendarIcon, Eye, UserPlus, AlertCircle } from 'lucide-react';
+import { Plus, Edit, Users, Search, X, Upload, Download, DollarSign, Calendar as CalendarIcon, Eye, UserPlus, AlertCircle, Info } from 'lucide-react';
 import { AdminLayout } from '@/components/layouts/AdminLayout';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Button } from '@/components/ui/button';
@@ -555,11 +555,6 @@ const CoursesPage: React.FC = () => {
               <span>{billingCycleError}</span>
             </div>
           )}
-          {formStartDate && formEndDate && durationMonths > 0 && (
-            <p className="text-xs text-muted-foreground">
-              Course duration: {durationMonths} month{durationMonths !== 1 ? 's' : ''}
-            </p>
-          )}
         </div>
       )}
 
@@ -679,22 +674,8 @@ const CoursesPage: React.FC = () => {
                         <span className="text-muted-foreground">Billing Cycle:</span>
                         <Badge variant="secondary">{BILLING_CYCLE_LABELS[formBillingCycle]}</Badge>
                       </div>
-                      <div className="border-t border-border pt-3">
-                        <p className="text-xs text-muted-foreground mb-2 font-medium">Billing Dates:</p>
-                        <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto">
-                          {paymentSchedule.map((date, index) => (
-                            <div 
-                              key={index} 
-                              className="flex items-center gap-2 text-sm bg-background rounded px-2 py-1.5 border"
-                            >
-                              <CalendarIcon className="h-3.5 w-3.5 text-primary" />
-                              <span className="font-mono text-xs">{format(date, "dd MMM yyyy")}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                      <div className="border-t border-border pt-3 flex items-center justify-between">
-                        <span className="text-sm font-medium">Total Payments:</span>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">Total Payments:</span>
                         <Badge className="bg-primary text-primary-foreground">
                           {paymentSchedule.length} Payment{paymentSchedule.length !== 1 ? 's' : ''}
                         </Badge>
@@ -705,6 +686,12 @@ const CoursesPage: React.FC = () => {
                           <span className="font-semibold text-primary">
                             {formatCurrency(parseFloat(formFee) * paymentSchedule.length)}
                           </span>
+                        </div>
+                      )}
+                      {formPaymentDeadlineDays && (
+                        <div className="text-xs text-muted-foreground mt-2 flex items-center gap-1.5 border-t border-border pt-3">
+                          <Info className="h-3.5 w-3.5 flex-shrink-0" />
+                          <span>Each student has {formPaymentDeadlineDays} days to pay from their enrolment date.</span>
                         </div>
                       )}
                     </div>
