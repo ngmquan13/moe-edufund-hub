@@ -17,6 +17,14 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from '@/components/ui/pagination';
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -81,7 +89,12 @@ const AccountDetailPage: React.FC = () => {
   const outstandingCharges = account ? getOutstandingChargesByAccount(account.id) : [];
   const auditLogs = useDataStore(getAuditLogs);
   
-  // Removed logFilter state - no longer needed
+  // Pagination states
+  const [coursesPage, setCoursesPage] = useState(1);
+  const [transactionsPage, setTransactionsPage] = useState(1);
+  const [accountLogPage, setAccountLogPage] = useState(1);
+  const itemsPerPage = 5;
+  
   const [showFullNric, setShowFullNric] = useState(false);
   const [rescheduleDialogOpen, setRescheduleDialogOpen] = useState(false);
   const [newActivationDate, setNewActivationDate] = useState<Date | undefined>();
@@ -590,16 +603,16 @@ const AccountDetailPage: React.FC = () => {
           variant="warning"
         />
         <StatCard
-          title="Online Payments"
-          value={formatCurrency(totalPayments)}
-          subtitle="Paid via online methods"
-          icon={<DollarSign className="h-5 w-5" />}
+          title="Enrolled Courses"
+          value={String(enrolments.length)}
+          subtitle={enrolments.filter(e => e.isActive).length > 0 ? `${enrolments.filter(e => e.isActive).length} active` : 'No active courses'}
+          icon={<BookOpen className="h-5 w-5" />}
           variant="info"
         />
       </div>
 
-      {/* Middle Section - Profile and All Courses */}
-      <div className="grid gap-6 lg:grid-cols-3 mb-6">
+      {/* Middle Section - Profile and Account Log side by side */}
+      <div className="grid gap-6 lg:grid-cols-2 mb-6">
         {/* Profile Card */}
         <Card>
           <CardHeader>
@@ -706,74 +719,221 @@ const AccountDetailPage: React.FC = () => {
           </CardContent>
         </Card>
 
-        {/* All Courses Card */}
-        <Card className="lg:col-span-2">
-          <CardHeader>
+        {/* Account Log Card - Now side by side with Profile */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-base flex items-center gap-2">
-              <BookOpen className="h-4 w-4" />
-              All Courses
+              <Activity className="h-4 w-4" />
+              Account Log
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            {enrolments.length > 0 ? (
-              <div className="space-y-3">
-                {enrolments.map((enrolment) => {
-                  const course = getCourse(enrolment.courseId);
-                  const paymentStatus = getCoursePaymentStatus(enrolment.courseId);
-                  const charge = outstandingCharges.find(c => c.courseId === enrolment.courseId);
-                  
-                  return (
-                    <div key={enrolment.id} className="flex items-center justify-between rounded-lg border p-4">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <p className="font-medium">{course?.name}</p>
-                          <Badge variant="secondary">{course?.code}</Badge>
-                          <Badge variant={enrolment.isActive ? 'active' : 'closed'}>
-                            {enrolment.isActive ? 'Active' : 'Completed'}
-                          </Badge>
-                        </div>
-                        <p className="text-sm text-muted-foreground">
-                          Started: {formatDate(enrolment.startDate)}
-                          {enrolment.endDate && ` • Ended: ${formatDate(enrolment.endDate)}`}
-                        </p>
-                        {charge && (
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Total Fee: {course && formatCurrency(course.monthlyFee * (course.durationMonths || 1))} • 
-                            Remaining: {formatCurrency(charge.amount)} • 
-                            Next Payment: {formatDate(charge.dueDate)}
-                          </p>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <div className="text-right">
-                          <span className="text-sm font-medium">{course && formatCurrency(course.monthlyFee)}</span>
-                          <span className="text-xs text-muted-foreground block">
-                            {course?.paymentType === 'one_time' ? 'one-time' : '/mo'}
-                          </span>
-                        </div>
-                        <Badge 
-                          variant={
-                            paymentStatus === 'paid' ? 'success' : 'warning'
-                          }
-                        >
-                          {paymentStatus === 'paid' && 'Paid'}
-                          {paymentStatus === 'pending' && `Pending ${charge ? formatCurrency(charge.amount) : ''}`}
-                          {paymentStatus === 'unpaid' && `Unpaid ${charge ? formatCurrency(charge.amount) : ''}`}
-                        </Badge>
-                      </div>
+          <CardContent className="p-0">
+            {(() => {
+              const filteredLog = accountLog.filter(entry => !['top_up', 'charge', 'payment'].includes(entry.type));
+              const totalLogPages = Math.ceil(filteredLog.length / itemsPerPage);
+              const paginatedLog = filteredLog.slice((accountLogPage - 1) * itemsPerPage, accountLogPage * itemsPerPage);
+              
+              return (
+                <>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Modified Date</TableHead>
+                        <TableHead>Action</TableHead>
+                        <TableHead>Detail</TableHead>
+                        <TableHead>Performed By</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {paginatedLog.length > 0 ? (
+                        paginatedLog.map((entry) => (
+                          <TableRow key={entry.id}>
+                            <TableCell className="text-sm">
+                              {formatDateTime(entry.createdAt)}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant={getLogBadgeVariant(entry.type) as any}>
+                                {entry.title}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <p className="text-sm text-muted-foreground max-w-[200px] truncate">
+                                {entry.description}
+                              </p>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm">{entry.performedBy}</span>
+                                {entry.performerRole && entry.performerRole !== 'system' && (
+                                  <Badge variant={getRoleBadgeVariant(entry.performerRole) as any} className="text-xs px-1.5 py-0">
+                                    {getRoleBadgeLabel(entry.performerRole)}
+                                  </Badge>
+                                )}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      ) : (
+                        <TableRow>
+                          <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                            No activity found
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                  {totalLogPages > 1 && (
+                    <div className="border-t p-2">
+                      <Pagination>
+                        <PaginationContent>
+                          <PaginationItem>
+                            <PaginationPrevious 
+                              onClick={() => setAccountLogPage(p => Math.max(1, p - 1))}
+                              className={accountLogPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                            />
+                          </PaginationItem>
+                          {Array.from({ length: totalLogPages }, (_, i) => i + 1).map(page => (
+                            <PaginationItem key={page}>
+                              <PaginationLink
+                                onClick={() => setAccountLogPage(page)}
+                                isActive={accountLogPage === page}
+                                className="cursor-pointer"
+                              >
+                                {page}
+                              </PaginationLink>
+                            </PaginationItem>
+                          ))}
+                          <PaginationItem>
+                            <PaginationNext 
+                              onClick={() => setAccountLogPage(p => Math.min(totalLogPages, p + 1))}
+                              className={accountLogPage === totalLogPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                            />
+                          </PaginationItem>
+                        </PaginationContent>
+                      </Pagination>
                     </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground text-center py-8">No courses enrolled</p>
-            )}
+                  )}
+                </>
+              );
+            })()}
           </CardContent>
         </Card>
       </div>
 
-      {/* Transaction History Section */}
+      {/* All Courses Section - Full width with table and pagination */}
       <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <BookOpen className="h-5 w-5" />
+            All Courses
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          {(() => {
+            const totalCoursesPages = Math.ceil(enrolments.length / itemsPerPage);
+            const paginatedEnrolments = enrolments.slice((coursesPage - 1) * itemsPerPage, coursesPage * itemsPerPage);
+            
+            return (
+              <>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Course Name (+code)</TableHead>
+                      <TableHead>Course Fee</TableHead>
+                      <TableHead>Payment Type</TableHead>
+                      <TableHead>Enrolled Date</TableHead>
+                      <TableHead>Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {paginatedEnrolments.length > 0 ? (
+                      paginatedEnrolments.map((enrolment) => {
+                        const course = getCourse(enrolment.courseId);
+                        const paymentStatus = getCoursePaymentStatus(enrolment.courseId);
+                        const charge = outstandingCharges.find(c => c.courseId === enrolment.courseId);
+                        
+                        return (
+                          <TableRow key={enrolment.id}>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium">{course?.name}</span>
+                                <Badge variant="secondary">{course?.code}</Badge>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <span className="font-medium">{course && formatCurrency(course.monthlyFee)}</span>
+                              <span className="text-xs text-muted-foreground ml-1">
+                                {course?.paymentType === 'one_time' ? '(one-time)' : '/mo'}
+                              </span>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline">
+                                {course?.paymentType === 'one_time' ? 'One-time' : 'Recurring'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-sm">
+                              {formatDate(enrolment.startDate)}
+                            </TableCell>
+                            <TableCell>
+                              <Badge 
+                                variant={paymentStatus === 'paid' ? 'success' : 'warning'}
+                              >
+                                {paymentStatus === 'paid' && 'Paid'}
+                                {paymentStatus === 'pending' && `Pending ${charge ? formatCurrency(charge.amount) : ''}`}
+                                {paymentStatus === 'unpaid' && `Unpaid ${charge ? formatCurrency(charge.amount) : ''}`}
+                              </Badge>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                          No courses enrolled
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+                {totalCoursesPages > 1 && (
+                  <div className="border-t p-2">
+                    <Pagination>
+                      <PaginationContent>
+                        <PaginationItem>
+                          <PaginationPrevious 
+                            onClick={() => setCoursesPage(p => Math.max(1, p - 1))}
+                            className={coursesPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                          />
+                        </PaginationItem>
+                        {Array.from({ length: totalCoursesPages }, (_, i) => i + 1).map(page => (
+                          <PaginationItem key={page}>
+                            <PaginationLink
+                              onClick={() => setCoursesPage(page)}
+                              isActive={coursesPage === page}
+                              className="cursor-pointer"
+                            >
+                              {page}
+                            </PaginationLink>
+                          </PaginationItem>
+                        ))}
+                        <PaginationItem>
+                          <PaginationNext 
+                            onClick={() => setCoursesPage(p => Math.min(totalCoursesPages, p + 1))}
+                            className={coursesPage === totalCoursesPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                          />
+                        </PaginationItem>
+                      </PaginationContent>
+                    </Pagination>
+                  </div>
+                )}
+              </>
+            );
+          })()}
+        </CardContent>
+      </Card>
+
+      {/* Transaction History Section - Full width with pagination */}
+      <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Wallet className="h-5 w-5" />
@@ -781,120 +941,93 @@ const AccountDetailPage: React.FC = () => {
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[50px]"></TableHead>
-                <TableHead>Date & Time</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Description</TableHead>
-                <TableHead className="text-right">Amount</TableHead>
-                <TableHead className="text-right">Balance After</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {transactions.length > 0 ? (
-                transactions.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map((txn) => (
-                  <TableRow key={txn.id}>
-                    <TableCell>
-                      {txn.type === 'top_up' && <TrendingUp className="h-4 w-4 text-success" />}
-                      {txn.type === 'charge' && <TrendingDown className="h-4 w-4 text-destructive" />}
-                      {txn.type === 'payment' && <DollarSign className="h-4 w-4 text-primary" />}
-                    </TableCell>
-                    <TableCell className="text-sm">
-                      {formatDateTime(txn.createdAt)}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={txn.type === 'top_up' ? 'success' : txn.type === 'charge' ? 'warning' : 'default'}>
-                        {txn.type === 'top_up' ? 'Top-up' : txn.type === 'charge' ? 'Charge' : 'Payment'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <p className="text-sm text-muted-foreground max-w-[300px] truncate">
-                        {txn.description}
-                      </p>
-                    </TableCell>
-                    <TableCell className={`text-right font-medium ${txn.amount > 0 ? 'text-success' : 'text-destructive'}`}>
-                      {txn.amount > 0 ? '+' : ''}{formatCurrency(txn.amount)}
-                    </TableCell>
-                    <TableCell className="text-right text-sm">
-                      {formatCurrency(txn.balanceAfter)}
-                    </TableCell>
-                  </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                    No transactions found
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-
-      {/* Lower Section - Account Log */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
-            <Activity className="h-5 w-5" />
-            Account Log
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[50px]"></TableHead>
-                <TableHead>Date & Time</TableHead>
-                <TableHead>Action</TableHead>
-                <TableHead>Details</TableHead>
-                <TableHead>Performed By</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {accountLog.filter(entry => !['top_up', 'charge', 'payment'].includes(entry.type)).length > 0 ? (
-                accountLog.filter(entry => !['top_up', 'charge', 'payment'].includes(entry.type)).map((entry) => (
-                  <TableRow key={entry.id}>
-                    <TableCell>
-                      {getLogIcon(entry.type)}
-                    </TableCell>
-                    <TableCell className="text-sm">
-                      {formatDateTime(entry.createdAt)}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={getLogBadgeVariant(entry.type) as any}>
-                        {entry.title}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <p className="text-sm text-muted-foreground max-w-[300px] truncate">
-                        {entry.description}
-                      </p>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <UserCog className="h-3 w-3 text-muted-foreground" />
-                        <span className="text-sm">{entry.performedBy}</span>
-                        {entry.performerRole && entry.performerRole !== 'system' && (
-                          <Badge variant={getRoleBadgeVariant(entry.performerRole) as any} className="text-xs px-1.5 py-0">
-                            {getRoleBadgeLabel(entry.performerRole)}
-                          </Badge>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                    No activity found
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
+          {(() => {
+            const sortedTransactions = [...transactions].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+            const totalTransactionsPages = Math.ceil(sortedTransactions.length / itemsPerPage);
+            const paginatedTransactions = sortedTransactions.slice((transactionsPage - 1) * itemsPerPage, transactionsPage * itemsPerPage);
+            
+            return (
+              <>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Transaction ID</TableHead>
+                      <TableHead>Timestamp</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Description</TableHead>
+                      <TableHead className="text-right">Amount</TableHead>
+                      <TableHead className="text-right">Balance</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {paginatedTransactions.length > 0 ? (
+                      paginatedTransactions.map((txn) => (
+                        <TableRow key={txn.id}>
+                          <TableCell className="font-mono text-sm">{txn.id}</TableCell>
+                          <TableCell className="text-sm">
+                            {formatDateTime(txn.createdAt)}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={txn.type === 'top_up' ? 'success' : txn.type === 'charge' ? 'warning' : 'default'}>
+                              {txn.type === 'top_up' ? 'Top-up' : txn.type === 'charge' ? 'Charge' : 'Payment'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <p className="text-sm text-muted-foreground max-w-[250px] truncate">
+                              {txn.description}
+                            </p>
+                          </TableCell>
+                          <TableCell className={`text-right font-medium ${txn.amount > 0 ? 'text-success' : 'text-destructive'}`}>
+                            {txn.amount > 0 ? '+' : ''}{formatCurrency(txn.amount)}
+                          </TableCell>
+                          <TableCell className="text-right text-sm">
+                            {formatCurrency(txn.balanceAfter)}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                          No transactions found
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+                {totalTransactionsPages > 1 && (
+                  <div className="border-t p-2">
+                    <Pagination>
+                      <PaginationContent>
+                        <PaginationItem>
+                          <PaginationPrevious 
+                            onClick={() => setTransactionsPage(p => Math.max(1, p - 1))}
+                            className={transactionsPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                          />
+                        </PaginationItem>
+                        {Array.from({ length: totalTransactionsPages }, (_, i) => i + 1).map(page => (
+                          <PaginationItem key={page}>
+                            <PaginationLink
+                              onClick={() => setTransactionsPage(page)}
+                              isActive={transactionsPage === page}
+                              className="cursor-pointer"
+                            >
+                              {page}
+                            </PaginationLink>
+                          </PaginationItem>
+                        ))}
+                        <PaginationItem>
+                          <PaginationNext 
+                            onClick={() => setTransactionsPage(p => Math.min(totalTransactionsPages, p + 1))}
+                            className={transactionsPage === totalTransactionsPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                          />
+                        </PaginationItem>
+                      </PaginationContent>
+                    </Pagination>
+                  </div>
+                )}
+              </>
+            );
+          })()}
         </CardContent>
       </Card>
     </AdminLayout>
