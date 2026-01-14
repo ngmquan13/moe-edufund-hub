@@ -81,7 +81,7 @@ const AccountDetailPage: React.FC = () => {
   const outstandingCharges = account ? getOutstandingChargesByAccount(account.id) : [];
   const auditLogs = useDataStore(getAuditLogs);
   
-  const [logFilter, setLogFilter] = useState<'all' | 'transactions' | 'lifecycle' | 'admin'>('all');
+  // Removed logFilter state - no longer needed
   const [showFullNric, setShowFullNric] = useState(false);
   const [rescheduleDialogOpen, setRescheduleDialogOpen] = useState(false);
   const [newActivationDate, setNewActivationDate] = useState<Date | undefined>();
@@ -290,16 +290,6 @@ const AccountDetailPage: React.FC = () => {
     return entries.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }, [account, holder, transactions, enrolments, auditLogs]);
 
-  // Filter log entries
-  const filteredLog = useMemo(() => {
-    return accountLog.filter(entry => {
-      if (logFilter === 'all') return true;
-      if (logFilter === 'transactions') return ['top_up', 'charge', 'payment'].includes(entry.type);
-      if (logFilter === 'lifecycle') return ['created', 'activated', 'suspended', 'reactivated', 'closed', 'enrolment', 'scheduled_activation'].includes(entry.type);
-      if (logFilter === 'admin') return entry.performedBy !== holder?.firstName + ' ' + holder?.lastName;
-      return true;
-    });
-  }, [accountLog, logFilter, holder]);
 
   if (!account || !holder) {
     return (
@@ -782,6 +772,68 @@ const AccountDetailPage: React.FC = () => {
         </Card>
       </div>
 
+      {/* Transaction History Section */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Wallet className="h-5 w-5" />
+            Transaction History
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[50px]"></TableHead>
+                <TableHead>Date & Time</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead>Description</TableHead>
+                <TableHead className="text-right">Amount</TableHead>
+                <TableHead className="text-right">Balance After</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {transactions.length > 0 ? (
+                transactions.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map((txn) => (
+                  <TableRow key={txn.id}>
+                    <TableCell>
+                      {txn.type === 'top_up' && <TrendingUp className="h-4 w-4 text-success" />}
+                      {txn.type === 'charge' && <TrendingDown className="h-4 w-4 text-destructive" />}
+                      {txn.type === 'payment' && <DollarSign className="h-4 w-4 text-primary" />}
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      {formatDateTime(txn.createdAt)}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={txn.type === 'top_up' ? 'success' : txn.type === 'charge' ? 'warning' : 'default'}>
+                        {txn.type === 'top_up' ? 'Top-up' : txn.type === 'charge' ? 'Charge' : 'Payment'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <p className="text-sm text-muted-foreground max-w-[300px] truncate">
+                        {txn.description}
+                      </p>
+                    </TableCell>
+                    <TableCell className={`text-right font-medium ${txn.amount > 0 ? 'text-success' : 'text-destructive'}`}>
+                      {txn.amount > 0 ? '+' : ''}{formatCurrency(txn.amount)}
+                    </TableCell>
+                    <TableCell className="text-right text-sm">
+                      {formatCurrency(txn.balanceAfter)}
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                    No transactions found
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
       {/* Lower Section - Account Log */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
@@ -789,20 +841,6 @@ const AccountDetailPage: React.FC = () => {
             <Activity className="h-5 w-5" />
             Account Log
           </CardTitle>
-          <div className="flex items-center gap-2">
-            <Filter className="h-4 w-4 text-muted-foreground" />
-            <Select value={logFilter} onValueChange={(v) => setLogFilter(v as any)}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Activity</SelectItem>
-                <SelectItem value="transactions">Transactions Only</SelectItem>
-                <SelectItem value="lifecycle">Lifecycle Events</SelectItem>
-                <SelectItem value="admin">Admin Actions</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
         </CardHeader>
         <CardContent className="p-0">
           <Table>
@@ -813,13 +851,11 @@ const AccountDetailPage: React.FC = () => {
                 <TableHead>Action</TableHead>
                 <TableHead>Details</TableHead>
                 <TableHead>Performed By</TableHead>
-                <TableHead className="text-right">Amount</TableHead>
-                <TableHead className="text-right">Balance</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredLog.length > 0 ? (
-                filteredLog.map((entry) => (
+              {accountLog.filter(entry => !['top_up', 'charge', 'payment'].includes(entry.type)).length > 0 ? (
+                accountLog.filter(entry => !['top_up', 'charge', 'payment'].includes(entry.type)).map((entry) => (
                   <TableRow key={entry.id}>
                     <TableCell>
                       {getLogIcon(entry.type)}
@@ -848,23 +884,11 @@ const AccountDetailPage: React.FC = () => {
                         )}
                       </div>
                     </TableCell>
-                    <TableCell className={`text-right font-medium ${entry.amount ? (entry.amount > 0 ? 'text-success' : 'text-destructive') : ''}`}>
-                      {entry.amount ? (
-                        <>{entry.amount > 0 ? '+' : ''}{formatCurrency(entry.amount)}</>
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right text-sm">
-                      {entry.balanceAfter !== undefined ? formatCurrency(entry.balanceAfter) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </TableCell>
                   </TableRow>
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
                     No activity found
                   </TableCell>
                 </TableRow>

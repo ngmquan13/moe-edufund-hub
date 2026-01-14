@@ -2,17 +2,13 @@ import React, { ReactNode } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, 
-  Users, 
   CreditCard, 
   BookOpen, 
-  FileText, 
   Settings, 
   LogOut,
   ChevronDown,
   Wallet,
-  Receipt,
-  ClipboardList,
-  Shield
+  ClipboardList
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
@@ -44,9 +40,8 @@ const navItems: NavItem[] = [
       { label: 'Courses Report', href: '/admin/courses/report' },
     ]
   },
-  { label: 'Reports', href: '/admin/reports', icon: FileText },
   { label: 'Audit Log', href: '/admin/audit', icon: ClipboardList },
-  { label: 'User Management', href: '/admin/users', icon: Shield },
+  { label: 'System Settings', href: '/admin/settings', icon: Settings },
 ];
 
 interface AdminLayoutProps {
