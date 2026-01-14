@@ -15,11 +15,10 @@ import AccountsPage from "./pages/admin/AccountsPage";
 import AccountDetailPage from "./pages/admin/AccountDetailPage";
 import AdminCoursesPage from "./pages/admin/CoursesPage";
 import TopUpManagementPage from "./pages/admin/TopUpManagementPage";
-import ReportsPage from "./pages/admin/ReportsPage";
 import AuditLogPage from "./pages/admin/AuditLogPage";
-import UserManagementPage from "./pages/admin/UserManagementPage";
 import CoursesReportPage from "./pages/admin/CoursesReportPage";
 import CourseDetailPage from "./pages/admin/CourseDetailPage";
+import SystemSettingsPage from "./pages/admin/SystemSettingsPage";
 
 // Citizen Pages
 import CitizenDashboard from "./pages/citizen/CitizenDashboard";
@@ -70,9 +69,8 @@ const AppRoutes = () => {
       <Route path="/admin/courses/:courseId" element={<ProtectedRoute portal="admin"><CourseDetailPage /></ProtectedRoute>} />
       <Route path="/admin/courses/report" element={<ProtectedRoute portal="admin"><CoursesReportPage /></ProtectedRoute>} />
       <Route path="/admin/topups" element={<ProtectedRoute portal="admin"><TopUpManagementPage /></ProtectedRoute>} />
-      <Route path="/admin/reports" element={<ProtectedRoute portal="admin"><ReportsPage /></ProtectedRoute>} />
       <Route path="/admin/audit" element={<ProtectedRoute portal="admin"><AuditLogPage /></ProtectedRoute>} />
-      <Route path="/admin/users" element={<ProtectedRoute portal="admin"><UserManagementPage /></ProtectedRoute>} />
+      <Route path="/admin/settings" element={<ProtectedRoute portal="admin"><SystemSettingsPage /></ProtectedRoute>} />
       
       {/* Citizen Portal Routes */}
       <Route path="/portal" element={<ProtectedRoute portal="citizen"><CitizenDashboard /></ProtectedRoute>} />
