@@ -340,6 +340,10 @@ const CourseDetailPage: React.FC = () => {
                 <p className="font-medium">{course.billingCycle ? BILLING_CYCLE_LABELS[course.billingCycle] : '-'}</p>
               </div>
             )}
+            <div>
+              <p className="text-muted-foreground">Payment Deadline</p>
+              <p className="font-medium">{course.paymentDeadlineDays ? `${course.paymentDeadlineDays} days` : '-'}</p>
+            </div>
             {course.startDate && (
               <div>
                 <p className="text-muted-foreground">Start Date</p>
