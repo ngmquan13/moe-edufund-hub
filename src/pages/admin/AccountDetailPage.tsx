@@ -613,36 +613,74 @@ const AccountDetailPage: React.FC = () => {
 
       {/* Profile Information Section */}
       <Card className="mb-6">
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <User className="h-4 w-4" />
-              Profile Information
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-secondary">
-                <span className="text-xl font-semibold text-secondary-foreground">
-                  {holder.firstName[0]}{holder.lastName[0]}
-                </span>
+        <CardContent className="p-6">
+          <div className="flex flex-col lg:flex-row gap-6">
+            {/* Left Column - Profile Header & Personal Info */}
+            <div className="lg:w-1/3 space-y-6">
+              {/* Profile Header */}
+              <div className="flex items-center gap-4">
+                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 border-2 border-primary/20">
+                  <span className="text-2xl font-bold text-primary">
+                    {holder.firstName[0]}{holder.lastName[0]}
+                  </span>
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold">{holder.firstName} {holder.lastName}</h3>
+                  <p className="text-sm text-muted-foreground font-mono">{account.id}</p>
+                  <Badge variant={account.status as any} className="mt-1">{getStatusLabel(account.status)}</Badge>
+                </div>
               </div>
-              <div>
-                <p className="font-medium">{holder.firstName} {holder.lastName}</p>
-                <p className="text-sm text-muted-foreground">Education Account: {account.id}</p>
+
+              {/* Account Status Section */}
+              <div className="bg-muted/50 rounded-lg p-4 space-y-3">
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Account Details</h4>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Schooling Status</p>
+                    <p className="text-sm font-medium">{getSchoolingLabel(holder.schoolingStatus)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Account Opened</p>
+                    <p className="text-sm font-medium">{formatDate(account.openedAt)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Last Top-up</p>
+                    <p className="text-sm font-medium">{account.lastTopUpDate ? formatDate(account.lastTopUpDate) : 'Never'}</p>
+                  </div>
+                  {account.suspendedAt && (
+                    <div>
+                      <p className="text-xs text-muted-foreground">Suspended On</p>
+                      <p className="text-sm font-medium text-warning">{formatDate(account.suspendedAt)}</p>
+                    </div>
+                  )}
+                  {account.closedAt && (
+                    <div>
+                      <p className="text-xs text-muted-foreground">Closed On</p>
+                      <p className="text-sm font-medium text-destructive">{formatDate(account.closedAt)}</p>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
-            <div className="space-y-3 pt-2">
-              <div className="flex items-start gap-3">
-                <IdCard className="h-4 w-4 text-muted-foreground mt-0.5" />
-                <div className="flex-1">
-                  <p className="text-sm font-medium">NRIC</p>
+            {/* Divider */}
+            <div className="hidden lg:block w-px bg-border" />
+
+            {/* Right Column - Contact & Personal Details */}
+            <div className="lg:flex-1 grid md:grid-cols-2 gap-x-8 gap-y-4">
+              {/* NRIC */}
+              <div className="flex items-start gap-3 p-3 rounded-lg hover:bg-muted/30 transition-colors">
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10">
+                  <IdCard className="h-4 w-4 text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">NRIC</p>
                   <div className="flex items-center gap-2">
-                    <p className="text-sm text-muted-foreground font-mono">{displayNric()}</p>
+                    <p className="text-sm font-mono">{displayNric()}</p>
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-6 w-6"
+                      className="h-6 w-6 hover:bg-primary/10"
                       onClick={() => setShowFullNric(!showFullNric)}
                     >
                       {showFullNric ? (
@@ -654,68 +692,55 @@ const AccountDetailPage: React.FC = () => {
                   </div>
                 </div>
               </div>
-              <div className="flex items-start gap-3">
-                <Calendar className="h-4 w-4 text-muted-foreground mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium">Date of Birth</p>
-                  <p className="text-sm text-muted-foreground">{formatDate(holder.dateOfBirth)} ({holder.age} years old)</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-3">
-                <Mail className="h-4 w-4 text-muted-foreground mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium">Email</p>
-                  <p className="text-sm text-muted-foreground">{holder.email}</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-3">
-                <Phone className="h-4 w-4 text-muted-foreground mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium">Phone</p>
-                  <p className="text-sm text-muted-foreground">{holder.phone}</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-3">
-                <MapPin className="h-4 w-4 text-muted-foreground mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium">Address</p>
-                  <p className="text-sm text-muted-foreground">{holder.address}</p>
-                </div>
-              </div>
-            </div>
 
-            <div className="pt-2 border-t space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Schooling Status</span>
-                <span className="text-sm font-medium">{getSchoolingLabel(holder.schoolingStatus)}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Account Status</span>
-                <Badge variant={account.status as any}>{getStatusLabel(account.status)}</Badge>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Account Opened</span>
-                <span className="text-sm font-medium">{formatDate(account.openedAt)}</span>
-              </div>
-              {account.suspendedAt && (
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Account Suspended</span>
-                  <span className="text-sm font-medium text-warning">{formatDate(account.suspendedAt)}</span>
+              {/* Date of Birth */}
+              <div className="flex items-start gap-3 p-3 rounded-lg hover:bg-muted/30 transition-colors">
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10">
+                  <Calendar className="h-4 w-4 text-primary" />
                 </div>
-              )}
-              {account.closedAt && (
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Account Closed</span>
-                  <span className="text-sm font-medium text-destructive">{formatDate(account.closedAt)}</span>
+                <div className="min-w-0">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Date of Birth</p>
+                  <p className="text-sm">{formatDate(holder.dateOfBirth)}</p>
+                  <p className="text-xs text-muted-foreground">{holder.age} years old</p>
                 </div>
-              )}
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Last Top-up</span>
-                <span className="text-sm font-medium">{account.lastTopUpDate ? formatDate(account.lastTopUpDate) : 'Never'}</span>
+              </div>
+
+              {/* Email */}
+              <div className="flex items-start gap-3 p-3 rounded-lg hover:bg-muted/30 transition-colors">
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10">
+                  <Mail className="h-4 w-4 text-primary" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Email</p>
+                  <p className="text-sm truncate">{holder.email}</p>
+                </div>
+              </div>
+
+              {/* Phone */}
+              <div className="flex items-start gap-3 p-3 rounded-lg hover:bg-muted/30 transition-colors">
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10">
+                  <Phone className="h-4 w-4 text-primary" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Phone</p>
+                  <p className="text-sm">{holder.phone}</p>
+                </div>
+              </div>
+
+              {/* Address - Full width */}
+              <div className="md:col-span-2 flex items-start gap-3 p-3 rounded-lg hover:bg-muted/30 transition-colors">
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10">
+                  <MapPin className="h-4 w-4 text-primary" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Address</p>
+                  <p className="text-sm">{holder.address}</p>
+                </div>
               </div>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </CardContent>
+      </Card>
 
 
       {/* All Courses Section - Full width with table and pagination */}
