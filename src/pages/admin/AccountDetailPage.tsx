@@ -611,10 +611,8 @@ const AccountDetailPage: React.FC = () => {
         />
       </div>
 
-      {/* Middle Section - Profile and Account Log side by side */}
-      <div className="grid gap-6 lg:grid-cols-2 mb-6">
-        {/* Profile Card */}
-        <Card>
+      {/* Profile Information Section */}
+      <Card className="mb-6">
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <User className="h-4 w-4" />
@@ -719,106 +717,6 @@ const AccountDetailPage: React.FC = () => {
           </CardContent>
         </Card>
 
-        {/* Account Log Card - Now side by side with Profile */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Activity className="h-4 w-4" />
-              Account Log
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            {(() => {
-              const filteredLog = accountLog.filter(entry => !['top_up', 'charge', 'payment'].includes(entry.type));
-              const totalLogPages = Math.ceil(filteredLog.length / itemsPerPage);
-              const paginatedLog = filteredLog.slice((accountLogPage - 1) * itemsPerPage, accountLogPage * itemsPerPage);
-              
-              return (
-                <>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Modified Date</TableHead>
-                        <TableHead>Action</TableHead>
-                        <TableHead>Detail</TableHead>
-                        <TableHead>Performed By</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {paginatedLog.length > 0 ? (
-                        paginatedLog.map((entry) => (
-                          <TableRow key={entry.id}>
-                            <TableCell className="text-sm">
-                              {formatDateTime(entry.createdAt)}
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant={getLogBadgeVariant(entry.type) as any}>
-                                {entry.title}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              <p className="text-sm text-muted-foreground max-w-[200px] truncate">
-                                {entry.description}
-                              </p>
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex items-center gap-2">
-                                <span className="text-sm">{entry.performedBy}</span>
-                                {entry.performerRole && entry.performerRole !== 'system' && (
-                                  <Badge variant={getRoleBadgeVariant(entry.performerRole) as any} className="text-xs px-1.5 py-0">
-                                    {getRoleBadgeLabel(entry.performerRole)}
-                                  </Badge>
-                                )}
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))
-                      ) : (
-                        <TableRow>
-                          <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
-                            No activity found
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                  {totalLogPages > 1 && (
-                    <div className="border-t p-2">
-                      <Pagination>
-                        <PaginationContent>
-                          <PaginationItem>
-                            <PaginationPrevious 
-                              onClick={() => setAccountLogPage(p => Math.max(1, p - 1))}
-                              className={accountLogPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
-                            />
-                          </PaginationItem>
-                          {Array.from({ length: totalLogPages }, (_, i) => i + 1).map(page => (
-                            <PaginationItem key={page}>
-                              <PaginationLink
-                                onClick={() => setAccountLogPage(page)}
-                                isActive={accountLogPage === page}
-                                className="cursor-pointer"
-                              >
-                                {page}
-                              </PaginationLink>
-                            </PaginationItem>
-                          ))}
-                          <PaginationItem>
-                            <PaginationNext 
-                              onClick={() => setAccountLogPage(p => Math.min(totalLogPages, p + 1))}
-                              className={accountLogPage === totalLogPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
-                            />
-                          </PaginationItem>
-                        </PaginationContent>
-                      </Pagination>
-                    </div>
-                  )}
-                </>
-              );
-            })()}
-          </CardContent>
-        </Card>
-      </div>
 
       {/* All Courses Section - Full width with table and pagination */}
       <Card className="mb-6">
@@ -838,7 +736,7 @@ const AccountDetailPage: React.FC = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Course Name (+code)</TableHead>
+                      <TableHead>Course Name</TableHead>
                       <TableHead>Course Fee</TableHead>
                       <TableHead>Payment Type</TableHead>
                       <TableHead>Enrolled Date</TableHead>
@@ -1019,6 +917,106 @@ const AccountDetailPage: React.FC = () => {
                           <PaginationNext 
                             onClick={() => setTransactionsPage(p => Math.min(totalTransactionsPages, p + 1))}
                             className={transactionsPage === totalTransactionsPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                          />
+                        </PaginationItem>
+                      </PaginationContent>
+                    </Pagination>
+                  </div>
+                )}
+              </>
+            );
+          })()}
+        </CardContent>
+      </Card>
+
+      {/* Account Log Section */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Activity className="h-5 w-5" />
+            Account Log
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          {(() => {
+            const filteredLog = accountLog.filter(entry => !['top_up', 'charge', 'payment'].includes(entry.type));
+            const totalLogPages = Math.ceil(filteredLog.length / itemsPerPage);
+            const paginatedLog = filteredLog.slice((accountLogPage - 1) * itemsPerPage, accountLogPage * itemsPerPage);
+            
+            return (
+              <>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Modified Date</TableHead>
+                      <TableHead>Action</TableHead>
+                      <TableHead>Detail</TableHead>
+                      <TableHead>Performed By</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {paginatedLog.length > 0 ? (
+                      paginatedLog.map((entry) => (
+                        <TableRow key={entry.id}>
+                          <TableCell className="text-sm">
+                            {formatDateTime(entry.createdAt)}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={getLogBadgeVariant(entry.type) as any}>
+                              {entry.title}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <p className="text-sm text-muted-foreground max-w-[200px] truncate">
+                              {entry.description}
+                            </p>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm">{entry.performedBy}</span>
+                              {entry.performerRole && entry.performerRole !== 'system' && (
+                                <Badge variant={getRoleBadgeVariant(entry.performerRole) as any} className="text-xs px-1.5 py-0">
+                                  {getRoleBadgeLabel(entry.performerRole)}
+                                </Badge>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                          No activity found
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+                {totalLogPages > 1 && (
+                  <div className="border-t p-2">
+                    <Pagination>
+                      <PaginationContent>
+                        <PaginationItem>
+                          <PaginationPrevious 
+                            onClick={() => setAccountLogPage(p => Math.max(1, p - 1))}
+                            className={accountLogPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                          />
+                        </PaginationItem>
+                        {Array.from({ length: totalLogPages }, (_, i) => i + 1).map(page => (
+                          <PaginationItem key={page}>
+                            <PaginationLink
+                              onClick={() => setAccountLogPage(page)}
+                              isActive={accountLogPage === page}
+                              className="cursor-pointer"
+                            >
+                              {page}
+                            </PaginationLink>
+                          </PaginationItem>
+                        ))}
+                        <PaginationItem>
+                          <PaginationNext 
+                            onClick={() => setAccountLogPage(p => Math.min(totalLogPages, p + 1))}
+                            className={accountLogPage === totalLogPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
                           />
                         </PaginationItem>
                       </PaginationContent>
