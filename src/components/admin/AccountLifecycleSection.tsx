@@ -1,19 +1,24 @@
 import React, { useState } from 'react';
-import { Calendar, Clock, Play, Check, Loader2, CalendarClock, UserPlus, UserX, Activity } from 'lucide-react';
+import { Calendar, Clock, Play, Check, Loader2, CalendarClock, Save, Eye, X, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
 import {
   Table,
   TableBody,
@@ -26,8 +31,8 @@ import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { toast } from '@/hooks/use-toast';
 
-// Lifecycle audit log type with enhanced fields
-interface LifecycleAuditEntry {
+// Session-related types
+interface LifecycleSession {
   id: string;
   timestamp: string;
   actionType: 'fetch_15yo' | 'activate_16yo' | 'close_30yo';
@@ -35,78 +40,57 @@ interface LifecycleAuditEntry {
   recordsCreated: number;
   recordsSkipped: number;
   status: 'completed' | 'failed';
-  details?: string;
-  fetchSessionId?: string;
+  adminName: string;
+  executionTimeMs: number;
+  fetchDate?: string;
+  activationDate?: string;
+  generatedAccounts: GeneratedAccount[];
 }
 
-// Fetch session to track batches
-interface FetchSession {
-  id: string;
-  createdAt: string;
-  targetYear: number;
-  scheduledActivationDate?: Date;
-  recordsCreated: number;
+interface GeneratedAccount {
+  accountHolderId: string;
+  name: string;
+  nric: string;
 }
+
+// Demo names for generated accounts
+const demoNames = [
+  'Ahmad bin Hassan', 'Siti Nurhaliza', 'Tan Wei Ming', 'Priya Devi',
+  'Muhammad Faris', 'Ng Siew Ling', 'Rajesh Kumar', 'Fatimah Zahra',
+  'Lee Jia Wei', 'Nurul Aisyah', 'Wong Mei Hua', 'Arun Sharma',
+  'Lim Boon Huat', 'Khadijah Ibrahim', 'Chen Xiao Ming', 'Kavitha Rajan'
+];
 
 // Simulated existing NRICs for deduplication demo
 const existingNrics = new Set(['S1234567A', 'S2345678B', 'S3456789C']);
 
 const AccountLifecycleSection: React.FC = () => {
   const currentYear = new Date().getFullYear();
+  const birthYear15 = currentYear - 15;
   
-  // Scheduled dates
-  const [fetch15yoDate, setFetch15yoDate] = useState<Date | undefined>();
-  const [activate16yoDate, setActivate16yoDate] = useState<Date | undefined>();
-  const [close30yoDate, setClose30yoDate] = useState<Date | undefined>();
+  // Configuration dates
+  const [fetchScheduleDate, setFetchScheduleDate] = useState<Date | undefined>();
+  const [activationScheduleDate, setActivationScheduleDate] = useState<Date | undefined>();
   
   // Loading states
-  const [fetch15yoLoading, setFetch15yoLoading] = useState(false);
-  const [activate16yoLoading, setActivate16yoLoading] = useState(false);
-  const [close30yoLoading, setClose30yoLoading] = useState(false);
+  const [simulationLoading, setSimulationLoading] = useState(false);
+  const [saveLoading, setSaveLoading] = useState(false);
   
-  // Result dialog state
-  const [resultDialogOpen, setResultDialogOpen] = useState(false);
-  const [resultData, setResultData] = useState<{
-    action: string;
-    year: number;
-    found: number;
-    created: number;
-    skipped: number;
-    sessionId?: string;
-  } | null>(null);
+  // Lifecycle sessions (audit log)
+  const [lifecycleSessions, setLifecycleSessions] = useState<LifecycleSession[]>([]);
   
-  // Lifecycle audit log
-  const [lifecycleAuditLog, setLifecycleAuditLog] = useState<LifecycleAuditEntry[]>([]);
-  
-  // Fetch sessions tracking
-  const [fetchSessions, setFetchSessions] = useState<FetchSession[]>([]);
+  // Session details view
+  const [selectedSession, setSelectedSession] = useState<LifecycleSession | null>(null);
+  const [sessionDetailsOpen, setSessionDetailsOpen] = useState(false);
 
-  const generateSessionId = () => `FS${Date.now().toString(36).toUpperCase()}`;
-
-  const addAuditEntry = (
-    actionType: LifecycleAuditEntry['actionType'],
-    targetYear: number,
-    recordsCreated: number,
-    recordsSkipped: number,
-    status: 'completed' | 'failed' = 'completed',
-    details?: string,
-    fetchSessionId?: string
-  ) => {
-    const entry: LifecycleAuditEntry = {
-      id: `LAL${Date.now()}`,
-      timestamp: new Date().toISOString(),
-      targetYear,
-      actionType,
-      recordsCreated,
-      recordsSkipped,
-      status,
-      details,
-      fetchSessionId,
-    };
-    setLifecycleAuditLog(prev => [entry, ...prev]);
+  const generateSessionId = () => `LS-${Date.now().toString(36).toUpperCase()}`;
+  const generateAccountHolderId = (index: number) => `AH${(1000 + index).toString().padStart(4, '0')}`;
+  const generateNric = (index: number) => {
+    const letters = 'ABCDEFGHIJKLMNPQRSTUVWXYZ';
+    return `S${(9000000 + index).toString()}${letters[index % letters.length]}`;
   };
 
-  const getActionLabel = (actionType: LifecycleAuditEntry['actionType']) => {
+  const getActionLabel = (actionType: LifecycleSession['actionType']) => {
     switch (actionType) {
       case 'fetch_15yo': return 'Fetch 15yo Data';
       case 'activate_16yo': return 'Activate 16yo';
@@ -114,138 +98,88 @@ const AccountLifecycleSection: React.FC = () => {
     }
   };
 
-  const getActionBadgeVariant = (actionType: LifecycleAuditEntry['actionType']) => {
+  const getActionBadgeVariant = (actionType: LifecycleSession['actionType']) => {
     switch (actionType) {
       case 'fetch_15yo': return 'secondary';
-      case 'activate_16yo': return 'success';
+      case 'activate_16yo': return 'outline';
       case 'close_30yo': return 'destructive';
     }
   };
 
-  // Fetch 15yo data with deduplication logic
-  const handleRunFetch15yo = async () => {
-    const birthYear = currentYear - 15;
-    setFetch15yoLoading(true);
+  // Save configuration without modal
+  const handleSaveConfiguration = async () => {
+    setSaveLoading(true);
     
     // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    await new Promise(resolve => setTimeout(resolve, 800));
     
-    // Demo data - simulate fetching with deduplication
-    const totalCitizensFound = Math.floor(Math.random() * 50) + 20;
-    const duplicatesFound = Math.floor(Math.random() * 5) + 1; // Simulate some duplicates
+    setSaveLoading(false);
+    
+    toast({
+      title: "Configuration Saved",
+      description: `Fetch scheduled for ${fetchScheduleDate ? format(fetchScheduleDate, 'dd MMM yyyy') : 'not set'}. Activation scheduled for ${activationScheduleDate ? format(activationScheduleDate, 'dd MMM yyyy') : 'not set'}.`,
+    });
+  };
+
+  // Run simulation - executes fetch and activation logic
+  const handleRunSimulation = async () => {
+    setSimulationLoading(true);
+    const startTime = Date.now();
+    
+    // Simulate API call with fetch logic
+    await new Promise(resolve => setTimeout(resolve, 2500));
+    
+    // Generate demo data with deduplication
+    const totalCitizensFound = Math.floor(Math.random() * 30) + 15;
+    const duplicatesFound = Math.floor(Math.random() * 4) + 1;
     const recordsCreated = totalCitizensFound - duplicatesFound;
     
-    // Create a new fetch session
+    // Generate accounts
+    const generatedAccounts: GeneratedAccount[] = [];
+    for (let i = 0; i < recordsCreated; i++) {
+      const nric = generateNric(i + Math.floor(Math.random() * 1000));
+      // Skip if NRIC exists (deduplication)
+      if (!existingNrics.has(nric)) {
+        generatedAccounts.push({
+          accountHolderId: generateAccountHolderId(generatedAccounts.length + 1),
+          name: demoNames[i % demoNames.length],
+          nric: `****${nric.slice(-4)}`, // Masked NRIC
+        });
+      }
+    }
+    
+    const executionTime = Date.now() - startTime;
     const sessionId = generateSessionId();
-    const newSession: FetchSession = {
+    
+    // Create new session entry
+    const newSession: LifecycleSession = {
       id: sessionId,
-      createdAt: new Date().toISOString(),
-      targetYear: birthYear,
-      scheduledActivationDate: activate16yoDate,
-      recordsCreated,
+      timestamp: new Date().toISOString(),
+      actionType: 'fetch_15yo',
+      targetYear: birthYear15,
+      recordsCreated: generatedAccounts.length,
+      recordsSkipped: duplicatesFound,
+      status: 'completed',
+      adminName: 'John Tan',
+      executionTimeMs: executionTime,
+      fetchDate: fetchScheduleDate ? format(fetchScheduleDate, 'yyyy-MM-dd') : undefined,
+      activationDate: activationScheduleDate ? format(activationScheduleDate, 'yyyy-MM-dd') : undefined,
+      generatedAccounts,
     };
-    setFetchSessions(prev => [...prev, newSession]);
     
-    setFetch15yoLoading(false);
-    setResultData({
-      action: 'Fetch 15yo Data',
-      year: birthYear,
-      found: totalCitizensFound,
-      created: recordsCreated,
-      skipped: duplicatesFound,
-      sessionId,
-    });
-    setResultDialogOpen(true);
-    
-    addAuditEntry(
-      'fetch_15yo', 
-      birthYear, 
-      recordsCreated, 
-      duplicatesFound,
-      'completed', 
-      `Fetched ${totalCitizensFound} records for ${birthYear}. ${recordsCreated} Created, ${duplicatesFound} Skipped (Already Exists).`,
-      sessionId
-    );
+    setLifecycleSessions(prev => [newSession, ...prev]);
+    setSimulationLoading(false);
     
     toast({
-      title: "Fetch Complete",
-      description: `Created ${recordsCreated} pending accounts. ${duplicatesFound} skipped (duplicates).`,
+      title: "Simulation Complete",
+      description: `Session ${sessionId}: Created ${generatedAccounts.length} pending accounts. ${duplicatesFound} skipped (duplicates).`,
     });
   };
 
-  // Activate 16yo accounts - only activates pending accounts from current batch
-  const handleRunActivate16yo = async () => {
-    const birthYear = currentYear - 16;
-    setActivate16yoLoading(true);
-    
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    // Demo data - only pending accounts without pre-set activation dates
-    const pendingAccounts = Math.floor(Math.random() * 30) + 5;
-    const accountsWithPresetDates = Math.floor(Math.random() * 3); // Some accounts have manual dates
-    const activatedAccounts = pendingAccounts - accountsWithPresetDates;
-    
-    setActivate16yoLoading(false);
-    setResultData({
-      action: 'Activate 16yo Accounts',
-      year: birthYear,
-      found: pendingAccounts,
-      created: activatedAccounts,
-      skipped: accountsWithPresetDates,
-    });
-    setResultDialogOpen(true);
-    
-    addAuditEntry(
-      'activate_16yo', 
-      birthYear, 
-      activatedAccounts, 
-      accountsWithPresetDates,
-      'completed',
-      `Activated ${activatedAccounts} pending accounts for ${birthYear}. ${accountsWithPresetDates} Skipped (Pre-set activation date).`
-    );
-    
-    toast({
-      title: "Activation Complete",
-      description: `Activated ${activatedAccounts} accounts. ${accountsWithPresetDates} skipped (pre-set dates).`,
-    });
-  };
-
-  // Close 30yo accounts
-  const handleRunClose30yo = async () => {
-    const birthYear = currentYear - 30;
-    setClose30yoLoading(true);
-    
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    // Demo data
-    const activeAccounts = Math.floor(Math.random() * 20) + 3;
-    const closedAccounts = activeAccounts;
-    
-    setClose30yoLoading(false);
-    setResultData({
-      action: 'Close 30yo Accounts',
-      year: birthYear,
-      found: activeAccounts,
-      created: closedAccounts,
-      skipped: 0,
-    });
-    setResultDialogOpen(true);
-    
-    addAuditEntry(
-      'close_30yo', 
-      birthYear, 
-      closedAccounts, 
-      0,
-      'completed',
-      `Closed ${closedAccounts} accounts for citizens born in ${birthYear}.`
-    );
-    
-    toast({
-      title: "Closure Complete",
-      description: `Closed ${closedAccounts} accounts for birth year ${birthYear}.`,
-    });
+  // Open session details
+  const handleViewSessionDetails = (session: LifecycleSession) => {
+    setSelectedSession(session);
+    setSessionDetailsOpen(true);
   };
 
   return (
@@ -257,216 +191,161 @@ const AccountLifecycleSection: React.FC = () => {
               <CalendarClock className="h-4 w-4 text-primary-foreground" />
             </div>
             <div>
-              <CardTitle className="text-lg">Account Lifecycle Scheduler</CardTitle>
+              <CardTitle className="text-lg">Account Lifecycle</CardTitle>
               <CardDescription className="text-xs">
-                Automated account lifecycle management
+                Session-based account lifecycle management
               </CardDescription>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Badge variant="outline" className="text-xs">
-              <Clock className="h-3 w-3 mr-1" />
-              Year: {currentYear}
-            </Badge>
-          </div>
+          <Badge variant="outline" className="text-xs">
+            <Clock className="h-3 w-3 mr-1" />
+            Year: {currentYear}
+          </Badge>
         </div>
       </CardHeader>
+      
       <CardContent className="space-y-4">
-        {/* Compact Scheduler Cards */}
-        <div className="grid gap-3 md:grid-cols-3">
-          {/* Fetch 15yo Data */}
-          <Card className="border bg-card/50">
-            <CardContent className="p-3 space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <UserPlus className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">Fetch 15yo Data</span>
-                </div>
-                <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-                  {currentYear - 15}
-                </Badge>
-              </div>
-              
+        {/* Lifecycle Session Setup Card */}
+        <Card className="border-2 border-primary/20 bg-primary/5">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Calendar className="h-4 w-4" />
+              Lifecycle Session Setup
+            </CardTitle>
+            <CardDescription className="text-xs">
+              Configure the scheduled dates for automatic lifecycle processing
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Helper Text */}
+            <div className="bg-muted/50 rounded-lg p-3 border border-muted">
+              <p className="text-xs text-muted-foreground">
+                <span className="font-medium text-foreground">Auto-targeting:</span> System will automatically target citizens turning 15 this year 
+                <Badge variant="secondary" className="ml-2 text-[10px]">Birth Year: {birthYear15}</Badge>
+              </p>
+            </div>
+            
+            {/* Date Pickers Row */}
+            <div className="grid gap-4 sm:grid-cols-2">
+              {/* Fetch Schedule Date */}
               <div className="space-y-2">
+                <label className="text-xs font-medium text-muted-foreground">
+                  Fetch Schedule Date
+                </label>
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
-                      size="sm"
                       className={cn(
-                        "w-full justify-start text-left h-8 text-xs",
-                        !fetch15yoDate && "text-muted-foreground"
+                        "w-full justify-start text-left h-9 text-sm",
+                        !fetchScheduleDate && "text-muted-foreground"
                       )}
                     >
-                      <Calendar className="mr-1.5 h-3 w-3" />
-                      {fetch15yoDate ? format(fetch15yoDate, "dd MMM yyyy") : "Schedule date"}
+                      <Calendar className="mr-2 h-4 w-4" />
+                      {fetchScheduleDate ? format(fetchScheduleDate, "dd MMM yyyy") : "Select fetch date"}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
                     <CalendarComponent
                       mode="single"
-                      selected={fetch15yoDate}
-                      onSelect={setFetch15yoDate}
+                      selected={fetchScheduleDate}
+                      onSelect={setFetchScheduleDate}
                       initialFocus
+                      className={cn("p-3 pointer-events-auto")}
                     />
                   </PopoverContent>
                 </Popover>
-                
-                <Button 
-                  onClick={handleRunFetch15yo} 
-                  disabled={fetch15yoLoading}
-                  className="w-full h-8 text-xs"
-                  variant="secondary"
-                  size="sm"
-                >
-                  {fetch15yoLoading ? (
-                    <>
-                      <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
-                      Processing...
-                    </>
-                  ) : (
-                    <>
-                      <Play className="h-3 w-3 mr-1.5" />
-                      Run Now
-                    </>
-                  )}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Activate 16yo Accounts */}
-          <Card className="border border-success/30 bg-success/5">
-            <CardContent className="p-3 space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Check className="h-4 w-4 text-success" />
-                  <span className="text-sm font-medium">Activate 16yo</span>
-                </div>
-                <Badge variant="success" className="text-[10px] px-1.5 py-0">
-                  {currentYear - 16}
-                </Badge>
               </div>
               
+              {/* Activation Schedule Date */}
               <div className="space-y-2">
+                <label className="text-xs font-medium text-muted-foreground">
+                  Activation Schedule Date
+                </label>
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
-                      size="sm"
                       className={cn(
-                        "w-full justify-start text-left h-8 text-xs",
-                        !activate16yoDate && "text-muted-foreground"
+                        "w-full justify-start text-left h-9 text-sm",
+                        !activationScheduleDate && "text-muted-foreground"
                       )}
                     >
-                      <Calendar className="mr-1.5 h-3 w-3" />
-                      {activate16yoDate ? format(activate16yoDate, "dd MMM yyyy") : "Schedule date"}
+                      <Calendar className="mr-2 h-4 w-4" />
+                      {activationScheduleDate ? format(activationScheduleDate, "dd MMM yyyy") : "Select activation date"}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
                     <CalendarComponent
                       mode="single"
-                      selected={activate16yoDate}
-                      onSelect={setActivate16yoDate}
+                      selected={activationScheduleDate}
+                      onSelect={setActivationScheduleDate}
                       initialFocus
+                      className={cn("p-3 pointer-events-auto")}
                     />
                   </PopoverContent>
                 </Popover>
-                
-                <Button 
-                  onClick={handleRunActivate16yo} 
-                  disabled={activate16yoLoading}
-                  className="w-full h-8 text-xs"
-                  variant="success"
-                  size="sm"
-                >
-                  {activate16yoLoading ? (
-                    <>
-                      <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
-                      Processing...
-                    </>
-                  ) : (
-                    <>
-                      <Play className="h-3 w-3 mr-1.5" />
-                      Run Now
-                    </>
-                  )}
-                </Button>
               </div>
-            </CardContent>
-          </Card>
-
-          {/* Close 30yo Accounts */}
-          <Card className="border border-destructive/30 bg-destructive/5">
-            <CardContent className="p-3 space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <UserX className="h-4 w-4 text-destructive" />
-                  <span className="text-sm font-medium">Close 30yo</span>
-                </div>
-                <Badge variant="destructive" className="text-[10px] px-1.5 py-0">
-                  {currentYear - 30}
-                </Badge>
-              </div>
+            </div>
+            
+            {/* Action Buttons */}
+            <div className="flex flex-col sm:flex-row gap-2 pt-2">
+              <Button 
+                onClick={handleSaveConfiguration}
+                disabled={saveLoading}
+                className="flex-1"
+                size="sm"
+              >
+                {saveLoading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-4 w-4 mr-2" />
+                    Save Configuration
+                  </>
+                )}
+              </Button>
               
-              <div className="space-y-2">
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className={cn(
-                        "w-full justify-start text-left h-8 text-xs",
-                        !close30yoDate && "text-muted-foreground"
-                      )}
-                    >
-                      <Calendar className="mr-1.5 h-3 w-3" />
-                      {close30yoDate ? format(close30yoDate, "dd MMM yyyy") : "Schedule date"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <CalendarComponent
-                      mode="single"
-                      selected={close30yoDate}
-                      onSelect={setClose30yoDate}
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
-                
-                <Button 
-                  onClick={handleRunClose30yo} 
-                  disabled={close30yoLoading}
-                  className="w-full h-8 text-xs"
-                  variant="destructive"
-                  size="sm"
-                >
-                  {close30yoLoading ? (
-                    <>
-                      <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
-                      Processing...
-                    </>
-                  ) : (
-                    <>
-                      <Play className="h-3 w-3 mr-1.5" />
-                      Run Now
-                    </>
-                  )}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+              <Button 
+                onClick={handleRunSimulation}
+                disabled={simulationLoading}
+                variant="secondary"
+                className="flex-1"
+                size="sm"
+              >
+                {simulationLoading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Running Simulation...
+                  </>
+                ) : (
+                  <>
+                    <Play className="h-4 w-4 mr-2" />
+                    Run Simulation
+                  </>
+                )}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
 
-        {/* Lifecycle Audit Log */}
+        {/* Lifecycle Session Log */}
         <div className="border rounded-lg">
           <div className="px-4 py-3 border-b bg-muted/30">
-            <div className="flex items-center gap-2">
-              <Activity className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm font-medium">Lifecycle Audit Log</span>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Clock className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-medium">Lifecycle Session Log</span>
+              </div>
+              <Badge variant="outline" className="text-[10px]">
+                {lifecycleSessions.length} sessions
+              </Badge>
             </div>
           </div>
-          <div className="max-h-[280px] overflow-auto">
+          <div className="max-h-[300px] overflow-auto">
             <Table>
               <TableHeader>
                 <TableRow className="text-xs">
@@ -476,38 +355,62 @@ const AccountLifecycleSection: React.FC = () => {
                   <TableHead className="h-9 text-right">Created</TableHead>
                   <TableHead className="h-9 text-right">Skipped</TableHead>
                   <TableHead className="h-9">Status</TableHead>
+                  <TableHead className="h-9 text-right">Details</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {lifecycleAuditLog.length > 0 ? (
-                  lifecycleAuditLog.map((entry) => (
-                    <TableRow key={entry.id} className="text-xs">
-                      <TableCell className="py-2">
-                        {format(new Date(entry.timestamp), 'dd/MM/yy HH:mm')}
+                {lifecycleSessions.length > 0 ? (
+                  lifecycleSessions.map((session) => (
+                    <TableRow 
+                      key={session.id} 
+                      className="text-xs cursor-pointer hover:bg-muted/50 transition-colors"
+                      onClick={() => handleViewSessionDetails(session)}
+                    >
+                      <TableCell className="py-2 font-mono text-[11px]">
+                        {format(new Date(session.timestamp), 'dd/MM/yy HH:mm')}
                       </TableCell>
                       <TableCell className="py-2">
-                        <Badge variant={getActionBadgeVariant(entry.actionType) as any} className="text-[10px]">
-                          {getActionLabel(entry.actionType)}
+                        <Badge variant={getActionBadgeVariant(session.actionType) as any} className="text-[10px]">
+                          {getActionLabel(session.actionType)}
                         </Badge>
                       </TableCell>
-                      <TableCell className="py-2 font-medium">{entry.targetYear}</TableCell>
-                      <TableCell className="py-2 text-right font-medium text-success">
-                        {entry.recordsCreated}
+                      <TableCell className="py-2 font-medium">{session.targetYear}</TableCell>
+                      <TableCell className="py-2 text-right font-medium text-green-600">
+                        {session.recordsCreated}
                       </TableCell>
                       <TableCell className="py-2 text-right font-medium text-muted-foreground">
-                        {entry.recordsSkipped}
+                        {session.recordsSkipped}
                       </TableCell>
                       <TableCell className="py-2">
-                        <Badge variant={entry.status === 'completed' ? 'success' : 'destructive'} className="text-[10px]">
-                          {entry.status === 'completed' ? 'Done' : 'Failed'}
+                        <Badge 
+                          variant={session.status === 'completed' ? 'default' : 'destructive'} 
+                          className={cn(
+                            "text-[10px]",
+                            session.status === 'completed' && "bg-green-600"
+                          )}
+                        >
+                          {session.status === 'completed' ? 'Done' : 'Failed'}
                         </Badge>
+                      </TableCell>
+                      <TableCell className="py-2 text-right">
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-6 w-6 p-0"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleViewSessionDetails(session);
+                          }}
+                        >
+                          <Eye className="h-3 w-3" />
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-6 text-xs text-muted-foreground">
-                      No lifecycle actions have been run yet
+                    <TableCell colSpan={7} className="text-center py-8 text-xs text-muted-foreground">
+                      No lifecycle sessions have been run yet. Use "Run Simulation" to create a session.
                     </TableCell>
                   </TableRow>
                 )}
@@ -517,64 +420,141 @@ const AccountLifecycleSection: React.FC = () => {
         </div>
       </CardContent>
 
-      {/* Result Dialog */}
-      <Dialog open={resultDialogOpen} onOpenChange={setResultDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-base">
-              <Check className="h-4 w-4 text-success" />
-              {resultData?.action} Complete
-            </DialogTitle>
-            <DialogDescription className="text-xs">
-              Lifecycle action executed successfully.
-            </DialogDescription>
-          </DialogHeader>
-          {resultData && (
-            <div className="py-3 space-y-3">
-              <div className="bg-muted rounded-lg p-3 space-y-2 text-sm">
+      {/* Session Details Side Panel */}
+      <Sheet open={sessionDetailsOpen} onOpenChange={setSessionDetailsOpen}>
+        <SheetContent className="sm:max-w-lg overflow-y-auto">
+          <SheetHeader className="pb-4">
+            <SheetTitle className="flex items-center gap-2 text-base">
+              <Clock className="h-4 w-4" />
+              Session Details
+            </SheetTitle>
+            <SheetDescription className="text-xs">
+              Detailed information about this lifecycle session
+            </SheetDescription>
+          </SheetHeader>
+          
+          {selectedSession && (
+            <div className="space-y-4">
+              {/* Session Header Info */}
+              <div className="bg-muted rounded-lg p-4 space-y-3">
                 <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">Target Year</span>
-                  <span className="font-bold">{resultData.year}</span>
+                  <span className="text-xs text-muted-foreground">Session ID</span>
+                  <Badge variant="outline" className="font-mono text-xs">{selectedSession.id}</Badge>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">Records Found</span>
-                  <span className="font-bold text-primary">{resultData.found}</span>
+                  <span className="text-xs text-muted-foreground">Execution Time</span>
+                  <span className="text-sm font-medium">{selectedSession.executionTimeMs}ms</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">Records Created/Processed</span>
-                  <span className="font-bold text-success">{resultData.created}</span>
-                </div>
-                {resultData.skipped > 0 && (
-                  <div className="flex justify-between items-center">
-                    <span className="text-muted-foreground">Records Skipped</span>
-                    <span className="font-bold text-muted-foreground">{resultData.skipped}</span>
+                  <span className="text-xs text-muted-foreground">Admin</span>
+                  <div className="flex items-center gap-1.5">
+                    <User className="h-3 w-3 text-muted-foreground" />
+                    <span className="text-sm font-medium">{selectedSession.adminName}</span>
+                    <Badge variant="secondary" className="text-[10px]">Admin</Badge>
                   </div>
-                )}
-                {resultData.sessionId && (
-                  <div className="flex justify-between items-center pt-2 border-t">
-                    <span className="text-muted-foreground">Fetch Session ID</span>
-                    <Badge variant="outline" className="text-xs">{resultData.sessionId}</Badge>
-                  </div>
-                )}
+                </div>
               </div>
-              <p className="text-xs text-muted-foreground text-center">
-                {resultData.action.includes('Fetch') && 
-                  `Fetched ${resultData.found} records for ${resultData.year}. ${resultData.created} Created, ${resultData.skipped} Skipped (Already Exists).`
-                }
-                {resultData.action.includes('Activate') && 
-                  `Activated ${resultData.created} pending accounts. ${resultData.skipped} Skipped (Pre-set activation date).`
-                }
-                {resultData.action.includes('Close') && 
-                  `Closed ${resultData.created} accounts for citizens born in ${resultData.year}.`
-                }
-              </p>
+
+              {/* Parameters Summary */}
+              <div className="border rounded-lg p-4 space-y-3">
+                <h4 className="text-sm font-medium flex items-center gap-2">
+                  <Calendar className="h-4 w-4" />
+                  Parameters Summary
+                </h4>
+                <div className="grid gap-2 text-xs">
+                  <div className="flex justify-between items-center py-1.5 border-b">
+                    <span className="text-muted-foreground">Target Year</span>
+                    <Badge variant="secondary">{selectedSession.targetYear}</Badge>
+                  </div>
+                  <div className="flex justify-between items-center py-1.5 border-b">
+                    <span className="text-muted-foreground">Fetch Date</span>
+                    <span className="font-medium">
+                      {selectedSession.fetchDate || 'Not scheduled'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center py-1.5 border-b">
+                    <span className="text-muted-foreground">Activation Date</span>
+                    <span className="font-medium">
+                      {selectedSession.activationDate || 'Not scheduled'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center py-1.5">
+                    <span className="text-muted-foreground">Status</span>
+                    <Badge 
+                      variant={selectedSession.status === 'completed' ? 'default' : 'destructive'}
+                      className={cn(
+                        "text-[10px]",
+                        selectedSession.status === 'completed' && "bg-green-600"
+                      )}
+                    >
+                      {selectedSession.status === 'completed' ? 'Completed' : 'Failed'}
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+
+              {/* Results Summary */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-green-50 dark:bg-green-950/30 rounded-lg p-3 text-center border border-green-200 dark:border-green-900">
+                  <div className="text-2xl font-bold text-green-600">{selectedSession.recordsCreated}</div>
+                  <div className="text-[10px] text-green-700 dark:text-green-400">Records Created</div>
+                </div>
+                <div className="bg-muted/50 rounded-lg p-3 text-center border">
+                  <div className="text-2xl font-bold text-muted-foreground">{selectedSession.recordsSkipped}</div>
+                  <div className="text-[10px] text-muted-foreground">Records Skipped</div>
+                </div>
+              </div>
+
+              {/* Generated Accounts Table */}
+              <div className="border rounded-lg">
+                <div className="px-3 py-2 border-b bg-muted/30">
+                  <span className="text-xs font-medium">Generated Accounts</span>
+                </div>
+                <div className="max-h-[250px] overflow-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="text-[11px]">
+                        <TableHead className="h-8">Account ID</TableHead>
+                        <TableHead className="h-8">Name</TableHead>
+                        <TableHead className="h-8">NRIC</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {selectedSession.generatedAccounts.length > 0 ? (
+                        selectedSession.generatedAccounts.map((account, index) => (
+                          <TableRow key={index} className="text-[11px]">
+                            <TableCell className="py-1.5 font-mono">
+                              {account.accountHolderId}
+                            </TableCell>
+                            <TableCell className="py-1.5">{account.name}</TableCell>
+                            <TableCell className="py-1.5 font-mono text-muted-foreground">
+                              {account.nric}
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      ) : (
+                        <TableRow>
+                          <TableCell colSpan={3} className="text-center py-4 text-xs text-muted-foreground">
+                            No accounts generated
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+
+              {/* Validation Note */}
+              <div className="bg-blue-50 dark:bg-blue-950/30 rounded-lg p-3 border border-blue-200 dark:border-blue-900">
+                <p className="text-[11px] text-blue-700 dark:text-blue-400">
+                  <strong>Validation:</strong> Duplicate NRICs were automatically skipped. 
+                  Manually created accounts with pre-set activation dates were not overwritten.
+                </p>
+              </div>
             </div>
           )}
-          <DialogFooter>
-            <Button onClick={() => setResultDialogOpen(false)} size="sm">Close</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
     </Card>
   );
 };
