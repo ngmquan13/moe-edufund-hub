@@ -1,13 +1,31 @@
 import React, { useState } from 'react';
-import { User, Mail, Phone, MapPin, Save, AlertCircle } from 'lucide-react';
+import { User, Mail, Phone, MapPin, Save, AlertCircle, CreditCard, Plus, Trash2, Edit2, Check } from 'lucide-react';
 import { CitizenLayout } from '@/components/layouts/CitizenLayout';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
+import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import {
   getAccountHolder,
   getEducationAccountByHolder,
@@ -15,6 +33,16 @@ import {
   getSchoolingLabel
 } from '@/lib/data';
 import { toast } from '@/hooks/use-toast';
+
+interface PaymentCard {
+  id: string;
+  last4: string;
+  brand: string;
+  expiryMonth: string;
+  expiryYear: string;
+  isDefault: boolean;
+  cardholderName: string;
+}
 
 const ProfilePage: React.FC = () => {
   const { citizenUser } = useAuth();
@@ -25,6 +53,21 @@ const ProfilePage: React.FC = () => {
   const [email, setEmail] = useState(holder?.email || '');
   const [address, setAddress] = useState(holder?.address || '');
   const [isEditing, setIsEditing] = useState(false);
+
+  // Payment Cards State
+  const [savedCards, setSavedCards] = useState<PaymentCard[]>([
+    { id: '1', last4: '4242', brand: 'Visa', expiryMonth: '12', expiryYear: '26', isDefault: true, cardholderName: 'John Doe' },
+  ]);
+  const [addCardDialogOpen, setAddCardDialogOpen] = useState(false);
+  const [editCardDialogOpen, setEditCardDialogOpen] = useState(false);
+  const [deleteCardDialogOpen, setDeleteCardDialogOpen] = useState(false);
+  const [selectedCard, setSelectedCard] = useState<PaymentCard | null>(null);
+  
+  // New Card Form
+  const [newCardNumber, setNewCardNumber] = useState('');
+  const [newCardExpiry, setNewCardExpiry] = useState('');
+  const [newCardCvc, setNewCardCvc] = useState('');
+  const [newCardName, setNewCardName] = useState('');
 
   if (!holder) {
     return (
@@ -42,6 +85,131 @@ const ProfilePage: React.FC = () => {
       description: "Your contact details have been updated successfully.",
     });
     setIsEditing(false);
+  };
+
+  const formatCardNumber = (value: string) => {
+    const v = value.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
+    const matches = v.match(/\d{4,16}/g);
+    const match = (matches && matches[0]) || '';
+    const parts = [];
+    for (let i = 0, len = match.length; i < len; i += 4) {
+      parts.push(match.substring(i, i + 4));
+    }
+    return parts.length ? parts.join(' ') : value;
+  };
+
+  const formatExpiry = (value: string) => {
+    const v = value.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
+    if (v.length >= 2) {
+      return v.substring(0, 2) + '/' + v.substring(2, 4);
+    }
+    return v;
+  };
+
+  const handleAddCard = () => {
+    if (!newCardNumber || !newCardExpiry || !newCardCvc || !newCardName) {
+      toast({
+        title: "Missing Information",
+        description: "Please fill in all card details",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const last4 = newCardNumber.replace(/\s/g, '').slice(-4);
+    const [month, year] = newCardExpiry.split('/');
+    
+    const newCard: PaymentCard = {
+      id: `card-${Date.now()}`,
+      last4,
+      brand: 'Visa',
+      expiryMonth: month,
+      expiryYear: year,
+      isDefault: savedCards.length === 0,
+      cardholderName: newCardName,
+    };
+
+    setSavedCards([...savedCards, newCard]);
+    setAddCardDialogOpen(false);
+    resetCardForm();
+    
+    toast({
+      title: "Card Added",
+      description: `Card ending in ${last4} has been added`,
+    });
+  };
+
+  const handleEditCard = () => {
+    if (!selectedCard) return;
+    
+    const [month, year] = newCardExpiry.split('/');
+    
+    setSavedCards(savedCards.map(card => 
+      card.id === selectedCard.id 
+        ? { ...card, expiryMonth: month, expiryYear: year, cardholderName: newCardName }
+        : card
+    ));
+    
+    setEditCardDialogOpen(false);
+    resetCardForm();
+    
+    toast({
+      title: "Card Updated",
+      description: "Card details have been updated",
+    });
+  };
+
+  const handleDeleteCard = () => {
+    if (!selectedCard) return;
+    
+    const wasDefault = selectedCard.isDefault;
+    const newCards = savedCards.filter(card => card.id !== selectedCard.id);
+    
+    // If deleted card was default, make the first remaining card default
+    if (wasDefault && newCards.length > 0) {
+      newCards[0].isDefault = true;
+    }
+    
+    setSavedCards(newCards);
+    setDeleteCardDialogOpen(false);
+    setSelectedCard(null);
+    
+    toast({
+      title: "Card Removed",
+      description: "Card has been removed from your account",
+    });
+  };
+
+  const handleSetDefault = (cardId: string) => {
+    setSavedCards(savedCards.map(card => ({
+      ...card,
+      isDefault: card.id === cardId
+    })));
+    
+    toast({
+      title: "Default Card Updated",
+      description: "Your default payment card has been updated",
+    });
+  };
+
+  const resetCardForm = () => {
+    setNewCardNumber('');
+    setNewCardExpiry('');
+    setNewCardCvc('');
+    setNewCardName('');
+    setSelectedCard(null);
+  };
+
+  const openEditDialog = (card: PaymentCard) => {
+    setSelectedCard(card);
+    setNewCardName(card.cardholderName);
+    setNewCardExpiry(`${card.expiryMonth}/${card.expiryYear}`);
+    setEditCardDialogOpen(true);
+  };
+
+  const openDeleteDialog = (card: PaymentCard) => {
+    setSelectedCard(card);
+    setDeleteCardDialogOpen(true);
   };
 
   return (
@@ -191,6 +359,215 @@ const ProfilePage: React.FC = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Payment Cards Section */}
+      <Card className="mt-6 animate-slide-up" style={{ animationDelay: '0.2s' }}>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <CreditCard className="h-5 w-5" />
+                Payment Cards
+              </CardTitle>
+              <CardDescription>
+                Manage your saved payment cards
+              </CardDescription>
+            </div>
+            <Button size="sm" onClick={() => setAddCardDialogOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Card
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {savedCards.length > 0 ? (
+            <div className="space-y-3">
+              {savedCards.map(card => (
+                <div 
+                  key={card.id} 
+                  className="flex items-center justify-between p-4 border rounded-lg"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="h-10 w-14 bg-muted rounded flex items-center justify-center text-xs font-semibold">
+                      {card.brand}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium">•••• •••• •••• {card.last4}</p>
+                        {card.isDefault && (
+                          <Badge variant="secondary">Default</Badge>
+                        )}
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        {card.cardholderName} • Expires {card.expiryMonth}/{card.expiryYear}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {!card.isDefault && (
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => handleSetDefault(card.id)}
+                      >
+                        <Check className="h-4 w-4 mr-1" />
+                        Set Default
+                      </Button>
+                    )}
+                    <Button 
+                      variant="ghost" 
+                      size="icon"
+                      onClick={() => openEditDialog(card)}
+                    >
+                      <Edit2 className="h-4 w-4" />
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="icon"
+                      className="text-destructive hover:text-destructive"
+                      onClick={() => openDeleteDialog(card)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              <CreditCard className="h-12 w-12 mx-auto mb-3 opacity-50" />
+              <p className="font-medium">No saved cards</p>
+              <p className="text-sm">Add a card to make payments faster</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Add Card Dialog */}
+      <Dialog open={addCardDialogOpen} onOpenChange={setAddCardDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add New Card</DialogTitle>
+            <DialogDescription>
+              Enter your card details securely
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="cardName">Name on Card</Label>
+              <Input 
+                id="cardName"
+                placeholder="John Doe"
+                value={newCardName}
+                onChange={(e) => setNewCardName(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="cardNumber">Card Number</Label>
+              <Input 
+                id="cardNumber"
+                placeholder="1234 5678 9012 3456"
+                value={newCardNumber}
+                onChange={(e) => setNewCardNumber(formatCardNumber(e.target.value))}
+                maxLength={19}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="expiry">Expiry Date</Label>
+                <Input 
+                  id="expiry"
+                  placeholder="MM/YY"
+                  value={newCardExpiry}
+                  onChange={(e) => setNewCardExpiry(formatExpiry(e.target.value))}
+                  maxLength={5}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="cvc">CVC</Label>
+                <Input 
+                  id="cvc"
+                  placeholder="123"
+                  value={newCardCvc}
+                  onChange={(e) => setNewCardCvc(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                  maxLength={4}
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setAddCardDialogOpen(false); resetCardForm(); }}>
+              Cancel
+            </Button>
+            <Button onClick={handleAddCard}>
+              Add Card
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Card Dialog */}
+      <Dialog open={editCardDialogOpen} onOpenChange={setEditCardDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Card</DialogTitle>
+            <DialogDescription>
+              Update your card details
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="p-3 bg-muted/50 rounded-lg">
+              <p className="text-sm text-muted-foreground">Card Number</p>
+              <p className="font-medium">•••• •••• •••• {selectedCard?.last4}</p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="editCardName">Name on Card</Label>
+              <Input 
+                id="editCardName"
+                value={newCardName}
+                onChange={(e) => setNewCardName(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="editExpiry">Expiry Date</Label>
+              <Input 
+                id="editExpiry"
+                placeholder="MM/YY"
+                value={newCardExpiry}
+                onChange={(e) => setNewCardExpiry(formatExpiry(e.target.value))}
+                maxLength={5}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setEditCardDialogOpen(false); resetCardForm(); }}>
+              Cancel
+            </Button>
+            <Button onClick={handleEditCard}>
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Card Confirmation */}
+      <AlertDialog open={deleteCardDialogOpen} onOpenChange={setDeleteCardDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove Card</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to remove the card ending in {selectedCard?.last4}? 
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setSelectedCard(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteCard} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </CitizenLayout>
   );
 };

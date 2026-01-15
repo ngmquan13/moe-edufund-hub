@@ -24,6 +24,7 @@ import SystemSettingsPage from "./pages/admin/SystemSettingsPage";
 import CitizenDashboard from "./pages/citizen/CitizenDashboard";
 import TransactionsPage from "./pages/citizen/TransactionsPage";
 import CitizenCoursesPage from "./pages/citizen/CoursesPage";
+import CheckoutPage from "./pages/citizen/CheckoutPage";
 import ProfilePage from "./pages/citizen/ProfilePage";
 
 const queryClient = new QueryClient();
@@ -76,6 +77,7 @@ const AppRoutes = () => {
       <Route path="/portal" element={<ProtectedRoute portal="citizen"><CitizenDashboard /></ProtectedRoute>} />
       <Route path="/portal/transactions" element={<ProtectedRoute portal="citizen"><TransactionsPage /></ProtectedRoute>} />
       <Route path="/portal/courses" element={<ProtectedRoute portal="citizen"><CitizenCoursesPage /></ProtectedRoute>} />
+      <Route path="/portal/courses/checkout" element={<ProtectedRoute portal="citizen"><CheckoutPage /></ProtectedRoute>} />
       <Route path="/portal/profile" element={<ProtectedRoute portal="citizen"><ProfilePage /></ProtectedRoute>} />
       
       {/* Catch-all */}
