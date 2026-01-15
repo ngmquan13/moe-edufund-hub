@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { TrendingUp, CreditCard, Receipt, Filter } from 'lucide-react';
+import { TrendingUp, CreditCard, Receipt, Filter, Eye, CheckCircle2, XCircle } from 'lucide-react';
 import { CitizenLayout } from '@/components/layouts/CitizenLayout';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Separator } from '@/components/ui/separator';
 import {
   Select,
   SelectContent,
@@ -12,16 +14,27 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
   getEducationAccount,
   getTransactionsByAccount,
   formatCurrency,
   formatDateTime,
-  TransactionType
+  formatDate,
+  TransactionType,
+  Transaction
 } from '@/lib/data';
 
 const TransactionsPage: React.FC = () => {
   const { citizenUser } = useAuth();
   const [typeFilter, setTypeFilter] = useState<string>('all');
+  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
+  const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   
   const account = citizenUser ? getEducationAccount(citizenUser.accountId) : null;
   const allTransactions = account ? getTransactionsByAccount(account.id) : [];
@@ -46,15 +59,52 @@ const TransactionsPage: React.FC = () => {
     }
   };
 
-  const getTypeBadge = (type: TransactionType) => {
-    switch (type) {
-      case 'top_up':
-        return <Badge variant="success">Top-up</Badge>;
-      case 'payment':
-        return <Badge variant="info">Payment</Badge>;
-      case 'charge':
-        return <Badge variant="secondary">Charge</Badge>;
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'completed':
+        return <Badge variant="success">Success</Badge>;
+      case 'failed':
+        return <Badge variant="destructive">Failed</Badge>;
+      case 'pending':
+        return <Badge variant="warning">Pending</Badge>;
+      default:
+        return <Badge variant="secondary">{status}</Badge>;
     }
+  };
+
+  const getTransactionTitle = (txn: Transaction) => {
+    // Use external description if available, otherwise use internal description
+    if (txn.externalDescription) {
+      return txn.externalDescription;
+    }
+    
+    // Parse the description to make it more user-friendly
+    const desc = txn.description;
+    
+    // Check if it mentions multiple courses
+    if (desc.includes('courses')) {
+      const match = desc.match(/(\d+)\s*courses/i);
+      if (match) {
+        return `Payment for ${match[1]} courses`;
+      }
+    }
+    
+    // For single course payment
+    if (desc.toLowerCase().includes('payment for')) {
+      return desc;
+    }
+    
+    // For top-ups
+    if (txn.type === 'top_up') {
+      return 'Account Top-up';
+    }
+    
+    return desc;
+  };
+
+  const handleViewDetails = (txn: Transaction) => {
+    setSelectedTransaction(txn);
+    setDetailDialogOpen(true);
   };
 
   return (
@@ -99,7 +149,8 @@ const TransactionsPage: React.FC = () => {
               {filteredTransactions.map((txn) => (
                 <div 
                   key={txn.id} 
-                  className="flex items-center justify-between rounded-lg border p-4 transition-colors hover:bg-secondary/50"
+                  className="flex items-center justify-between rounded-lg border p-4 transition-colors hover:bg-secondary/50 cursor-pointer"
+                  onClick={() => handleViewDetails(txn)}
                 >
                   <div className="flex items-center gap-4">
                     <div className={`flex h-12 w-12 items-center justify-center rounded-full ${
@@ -109,20 +160,25 @@ const TransactionsPage: React.FC = () => {
                       {getTypeIcon(txn.type)}
                     </div>
                     <div>
-                      <p className="font-medium">{txn.description}</p>
+                      <p className="font-medium">{getTransactionTitle(txn)}</p>
                       <div className="flex items-center gap-2 mt-1">
                         <span className="text-sm text-muted-foreground">{formatDateTime(txn.createdAt)}</span>
-                        {getTypeBadge(txn.type)}
+                        {getStatusBadge(txn.status)}
                       </div>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className={`text-lg font-semibold ${txn.amount > 0 ? 'text-success' : 'text-foreground'}`}>
-                      {txn.amount > 0 ? '+' : ''}{formatCurrency(txn.amount)}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      Balance: {formatCurrency(txn.balanceAfter)}
-                    </p>
+                  <div className="flex items-center gap-4">
+                    <div className="text-right">
+                      <p className={`text-lg font-semibold ${txn.amount > 0 ? 'text-success' : 'text-foreground'}`}>
+                        {txn.amount > 0 ? '+' : ''}{formatCurrency(txn.amount)}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        Balance: {formatCurrency(txn.balanceAfter)}
+                      </p>
+                    </div>
+                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                      <Eye className="h-4 w-4" />
+                    </Button>
                   </div>
                 </div>
               ))}
@@ -138,6 +194,75 @@ const TransactionsPage: React.FC = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Transaction Detail Dialog */}
+      <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Transaction Details</DialogTitle>
+            <DialogDescription>
+              View transaction information
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedTransaction && (
+            <div className="space-y-6 pt-4">
+              {/* Status Icon */}
+              <div className="text-center">
+                <div className={`inline-flex h-16 w-16 items-center justify-center rounded-full mb-4 ${
+                  selectedTransaction.status === 'completed' ? 'bg-success/10' : 'bg-destructive/10'
+                }`}>
+                  {selectedTransaction.status === 'completed' ? (
+                    <CheckCircle2 className="h-8 w-8 text-success" />
+                  ) : (
+                    <XCircle className="h-8 w-8 text-destructive" />
+                  )}
+                </div>
+                <h3 className="text-xl font-bold">
+                  {selectedTransaction.amount > 0 ? '+' : ''}{formatCurrency(selectedTransaction.amount)}
+                </h3>
+                <div className="mt-2">
+                  {getStatusBadge(selectedTransaction.status)}
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Transaction Info */}
+              <div className="space-y-4">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Description</span>
+                  <span className="font-medium text-right max-w-[200px]">
+                    {getTransactionTitle(selectedTransaction)}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Date & Time</span>
+                  <span className="font-medium">{formatDateTime(selectedTransaction.createdAt)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Transaction ID</span>
+                  <span className="font-mono text-sm">{selectedTransaction.id}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Reference</span>
+                  <span className="font-mono text-sm">{selectedTransaction.reference}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Balance After</span>
+                  <span className="font-medium">{formatCurrency(selectedTransaction.balanceAfter)}</span>
+                </div>
+                {selectedTransaction.period && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Period</span>
+                    <span className="font-medium">{selectedTransaction.period}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </CitizenLayout>
   );
 };

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -15,21 +16,22 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Separator } from '@/components/ui/separator';
 import { 
   BookOpen, 
   Calendar, 
   CreditCard,
-  Wallet,
   CheckCircle2,
-  XCircle,
-  AlertCircle
+  AlertCircle,
+  Eye,
+  Clock,
+  DollarSign,
+  ArrowRight,
+  History
 } from 'lucide-react';
 import { CitizenLayout } from '@/components/layouts/CitizenLayout';
 import { useAuth } from '@/contexts/AuthContext';
@@ -39,30 +41,25 @@ import {
   getOutstandingChargesByAccount,
   getEnrolmentsByHolder,
   getCourse,
-  updateEducationAccount,
-  updateOutstandingCharge,
-  addTransaction
+  getTransactionsByAccount
 } from '@/lib/dataStore';
-import { formatCurrency, formatDate, OutstandingCharge } from '@/lib/data';
-import { toast } from '@/hooks/use-toast';
-
-type PaymentMethod = 'balance' | 'online' | 'combined';
+import { formatCurrency, formatDate, OutstandingCharge, Transaction } from '@/lib/data';
 
 const CoursesPage: React.FC = () => {
+  const navigate = useNavigate();
   const { citizenUser } = useAuth();
   
   const educationAccount = citizenUser ? getEducationAccountByHolder(citizenUser.id) : null;
   const outstandingCharges = educationAccount ? getOutstandingChargesByAccount(educationAccount.id) : [];
   const enrolments = citizenUser ? getEnrolmentsByHolder(citizenUser.id) : [];
+  const transactions = educationAccount ? getTransactionsByAccount(educationAccount.id) : [];
   
   // Force re-render when data changes
   useDataStore(() => educationAccount);
 
-  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [selectedCharges, setSelectedCharges] = useState<string[]>([]);
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('balance');
-  const [processingPayment, setProcessingPayment] = useState(false);
-  const [paymentResult, setPaymentResult] = useState<'success' | 'error' | null>(null);
+  const [courseDetailOpen, setCourseDetailOpen] = useState(false);
+  const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
 
   const activeEnrolments = enrolments.filter(e => e.isActive);
   const pendingCharges = outstandingCharges.filter(c => c.status === 'unpaid');
@@ -72,10 +69,6 @@ const CoursesPage: React.FC = () => {
     return sum + (charge?.amount || 0);
   }, 0);
 
-  const balance = educationAccount?.balance || 0;
-  const canPayWithBalance = balance >= selectedTotal;
-  const remainingAfterBalance = Math.max(0, selectedTotal - balance);
-
   const handleSelectCharge = (chargeId: string, checked: boolean) => {
     if (checked) {
       setSelectedCharges([...selectedCharges, chargeId]);
@@ -84,101 +77,37 @@ const CoursesPage: React.FC = () => {
     }
   };
 
-  const handlePayNow = (chargeId?: string) => {
-    if (chargeId) {
-      setSelectedCharges([chargeId]);
-    }
-    setPaymentDialogOpen(true);
-    setPaymentResult(null);
+  const handleProceedToCheckout = (chargeId?: string) => {
+    const chargesToPay = chargeId ? [chargeId] : selectedCharges;
+    if (chargesToPay.length === 0) return;
+    
+    navigate('/portal/courses/checkout', { 
+      state: { selectedCharges: chargesToPay } 
+    });
   };
 
-  const processPayment = () => {
-    if (!educationAccount || selectedCharges.length === 0) return;
-
-    setProcessingPayment(true);
-
-    // Simulate payment processing
-    setTimeout(() => {
-      try {
-        let balanceUsed = 0;
-        let onlinePayment = 0;
-
-        if (paymentMethod === 'balance') {
-          if (!canPayWithBalance) {
-            throw new Error('Insufficient balance');
-          }
-          balanceUsed = selectedTotal;
-        } else if (paymentMethod === 'online') {
-          onlinePayment = selectedTotal;
-        } else if (paymentMethod === 'combined') {
-          balanceUsed = Math.min(balance, selectedTotal);
-          onlinePayment = remainingAfterBalance;
-        }
-
-        // Update account balance
-        if (balanceUsed > 0) {
-          updateEducationAccount(educationAccount.id, {
-            balance: balance - balanceUsed
-          });
-
-          // Add transaction for balance payment
-          addTransaction({
-            id: `TXN${String(Date.now()).slice(-6)}`,
-            accountId: educationAccount.id,
-            type: 'payment',
-            amount: -balanceUsed,
-            balanceAfter: balance - balanceUsed,
-            description: `Course Fee Payment (Balance)`,
-            reference: `PAY-${Date.now()}`,
-            status: 'completed',
-            createdAt: new Date().toISOString(),
-          });
-        }
-
-        if (onlinePayment > 0) {
-          // Add transaction for online payment
-          addTransaction({
-            id: `TXN${String(Date.now()).slice(-6)}`,
-            accountId: educationAccount.id,
-            type: 'payment',
-            amount: onlinePayment,
-            balanceAfter: balance - balanceUsed,
-            description: `Course Fee Payment (Online)`,
-            reference: `PAY-ONLINE-${Date.now()}`,
-            status: 'completed',
-            createdAt: new Date().toISOString(),
-          });
-        }
-
-        // Update outstanding charges to paid
-        selectedCharges.forEach(chargeId => {
-          updateOutstandingCharge(chargeId, { status: 'paid' });
-        });
-
-        setPaymentResult('success');
-        toast({
-          title: "Payment Successful",
-          description: `Successfully paid ${formatCurrency(selectedTotal)}`,
-        });
-      } catch (error) {
-        setPaymentResult('error');
-        toast({
-          title: "Payment Failed",
-          description: "There was an error processing your payment. Please try again.",
-          variant: "destructive",
-        });
-      } finally {
-        setProcessingPayment(false);
-      }
-    }, 1500);
+  const handleViewCourseDetails = (courseId: string) => {
+    setSelectedCourseId(courseId);
+    setCourseDetailOpen(true);
   };
 
-  const closePaymentDialog = () => {
-    setPaymentDialogOpen(false);
-    setSelectedCharges([]);
-    setPaymentMethod('balance');
-    setPaymentResult(null);
-  };
+  // Get course details for the selected course
+  const selectedCourse = selectedCourseId ? getCourse(selectedCourseId) : null;
+  const selectedEnrolment = selectedCourseId 
+    ? activeEnrolments.find(e => e.courseId === selectedCourseId) 
+    : null;
+  const courseCharges = selectedCourseId 
+    ? outstandingCharges.filter(c => c.courseId === selectedCourseId)
+    : [];
+  const courseTransactions = selectedCourseId
+    ? transactions.filter(t => t.courseId === selectedCourseId || 
+        t.description?.toLowerCase().includes(selectedCourse?.name?.toLowerCase() || ''))
+    : [];
+
+  // Calculate fee breakdown for selected course
+  const totalCourseFee = selectedCourse ? selectedCourse.monthlyFee * 12 : 0; // Assuming yearly
+  const paidAmount = courseCharges.filter(c => c.status === 'paid').reduce((sum, c) => sum + c.amount, 0);
+  const upcomingFee = courseCharges.filter(c => c.status === 'unpaid').reduce((sum, c) => sum + c.amount, 0);
 
   return (
     <CitizenLayout>
@@ -243,13 +172,19 @@ const CoursesPage: React.FC = () => {
                           </div>
                         </div>
                         <div className="flex items-center gap-3">
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => handleViewCourseDetails(course.id)}
+                          >
+                            <Eye className="h-4 w-4 mr-1" />
+                            View Details
+                          </Button>
                           {hasPendingPayment ? (
                             <>
-                              <Badge variant="warning">
-                                Pending Payment
-                              </Badge>
-                              <Button size="sm" onClick={() => handlePayNow(charge?.id)}>
-                                Pay Now
+                              <Badge variant="warning">Pending</Badge>
+                              <Button size="sm" onClick={() => handleProceedToCheckout(charge?.id)}>
+                                Pay
                               </Button>
                             </>
                           ) : (
@@ -310,9 +245,7 @@ const CoursesPage: React.FC = () => {
                           <TableCell>{charge.period}</TableCell>
                           <TableCell>{formatDate(charge.dueDate)}</TableCell>
                           <TableCell>
-                            <Badge variant="warning">
-                              Pending Payment
-                            </Badge>
+                            <Badge variant="warning">Pending</Badge>
                           </TableCell>
                           <TableCell className="text-right font-semibold">
                             {formatCurrency(charge.amount)}
@@ -332,8 +265,9 @@ const CoursesPage: React.FC = () => {
                           Total: {formatCurrency(selectedTotal)}
                         </p>
                       </div>
-                      <Button onClick={() => handlePayNow()}>
-                        Proceed to Payment
+                      <Button onClick={() => handleProceedToCheckout()}>
+                        Proceed to Checkout
+                        <ArrowRight className="h-4 w-4 ml-2" />
                       </Button>
                     </div>
                   )}
@@ -350,134 +284,133 @@ const CoursesPage: React.FC = () => {
         </TabsContent>
       </Tabs>
 
-      {/* Payment Dialog */}
-      <Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          {paymentResult === 'success' ? (
-            <>
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2 text-success">
-                  <CheckCircle2 className="h-6 w-6" />
-                  Payment Successful
-                </DialogTitle>
-                <DialogDescription>
-                  Your payment of {formatCurrency(selectedTotal)} has been processed successfully.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="py-6 text-center">
-                <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-success/10 mb-4">
-                  <CheckCircle2 className="h-8 w-8 text-success" />
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  Updated Balance: {formatCurrency(educationAccount?.balance || 0)}
-                </p>
-              </div>
-              <DialogFooter>
-                <Button onClick={closePaymentDialog} className="w-full">
-                  Done
-                </Button>
-              </DialogFooter>
-            </>
-          ) : paymentResult === 'error' ? (
-            <>
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2 text-destructive">
-                  <XCircle className="h-6 w-6" />
-                  Payment Failed
-                </DialogTitle>
-                <DialogDescription>
-                  We couldn't process your payment. Please try again.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="py-6 text-center">
-                <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-destructive/10 mb-4">
-                  <XCircle className="h-8 w-8 text-destructive" />
+      {/* Course Details Dialog */}
+      <Dialog open={courseDetailOpen} onOpenChange={setCourseDetailOpen}>
+        <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <BookOpen className="h-5 w-5" />
+              Course Details
+            </DialogTitle>
+            <DialogDescription>
+              View course information and payment history
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedCourse && selectedEnrolment && (
+            <div className="space-y-6 pt-4">
+              {/* Course Information */}
+              <div>
+                <h3 className="font-semibold text-lg mb-3">{selectedCourse.name}</h3>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="text-muted-foreground">Course Code</span>
+                    <p className="font-medium">{selectedCourse.code}</p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Provider</span>
+                    <p className="font-medium">{selectedCourse.provider}</p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Enrolled Since</span>
+                    <p className="font-medium">{formatDate(selectedEnrolment.startDate)}</p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Monthly Fee</span>
+                    <p className="font-medium">{formatCurrency(selectedCourse.monthlyFee)}</p>
+                  </div>
                 </div>
               </div>
-              <DialogFooter className="flex gap-2">
-                <Button variant="outline" onClick={closePaymentDialog} className="flex-1">
-                  Cancel
-                </Button>
-                <Button onClick={processPayment} className="flex-1">
-                  Try Again
-                </Button>
-              </DialogFooter>
-            </>
-          ) : (
-            <>
-              <DialogHeader>
-                <DialogTitle>Payment Method</DialogTitle>
-                <DialogDescription>
-                  Select how you would like to pay {formatCurrency(selectedTotal)}
-                </DialogDescription>
-              </DialogHeader>
-              <div className="py-4 space-y-4">
-                <div className="p-3 bg-muted/50 rounded-lg">
-                  <p className="text-sm text-muted-foreground">Your Balance</p>
-                  <p className="text-xl font-bold">{formatCurrency(balance)}</p>
+
+              <Separator />
+
+              {/* Fee Summary */}
+              <div>
+                <h4 className="font-semibold flex items-center gap-2 mb-3">
+                  <DollarSign className="h-4 w-4" />
+                  Fee Summary
+                </h4>
+                <div className="grid grid-cols-3 gap-4">
+                  <Card className="p-4">
+                    <p className="text-sm text-muted-foreground">Total Fee</p>
+                    <p className="text-xl font-bold">{formatCurrency(totalCourseFee)}</p>
+                  </Card>
+                  <Card className="p-4">
+                    <p className="text-sm text-muted-foreground">Paid</p>
+                    <p className="text-xl font-bold text-success">{formatCurrency(paidAmount)}</p>
+                  </Card>
+                  <Card className="p-4">
+                    <p className="text-sm text-muted-foreground">Upcoming</p>
+                    <p className="text-xl font-bold text-warning">{formatCurrency(upcomingFee)}</p>
+                  </Card>
                 </div>
+              </div>
 
-                <RadioGroup value={paymentMethod} onValueChange={(v) => setPaymentMethod(v as PaymentMethod)}>
-                  <div className={`flex items-start space-x-3 p-3 rounded-lg border cursor-pointer ${
-                    !canPayWithBalance ? 'opacity-50' : ''
-                  }`}>
-                    <RadioGroupItem value="balance" id="balance" disabled={!canPayWithBalance} />
-                    <Label htmlFor="balance" className="flex-1 cursor-pointer">
-                      <div className="flex items-center gap-2">
-                        <Wallet className="h-4 w-4" />
-                        <span className="font-medium">Pay with Balance</span>
-                      </div>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        Use your education account balance
-                      </p>
-                      {!canPayWithBalance && (
-                        <p className="text-sm text-destructive mt-1">
-                          Insufficient balance
-                        </p>
-                      )}
-                    </Label>
-                  </div>
-
-                  <div className="flex items-start space-x-3 p-3 rounded-lg border cursor-pointer">
-                    <RadioGroupItem value="online" id="online" />
-                    <Label htmlFor="online" className="flex-1 cursor-pointer">
-                      <div className="flex items-center gap-2">
-                        <CreditCard className="h-4 w-4" />
-                        <span className="font-medium">Pay Online</span>
-                      </div>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        Credit/Debit card or e-payment
-                      </p>
-                    </Label>
-                  </div>
-
-                  {/* Combined Payment - Only show when balance is insufficient */}
-                  {!canPayWithBalance && balance > 0 && (
-                    <div className="flex items-start space-x-3 p-3 rounded-lg border border-primary/50 bg-primary/5 cursor-pointer">
-                      <RadioGroupItem value="combined" id="combined" />
-                      <Label htmlFor="combined" className="flex-1 cursor-pointer">
-                        <div className="flex items-center gap-2">
-                          <Wallet className="h-4 w-4 text-primary" />
-                          <span className="font-medium text-primary">Combined Payment</span>
-                          <Badge variant="info" className="text-xs">Recommended</Badge>
+              {/* Upcoming Payments */}
+              {courseCharges.filter(c => c.status === 'unpaid').length > 0 && (
+                <>
+                  <Separator />
+                  <div>
+                    <h4 className="font-semibold flex items-center gap-2 mb-3">
+                      <Clock className="h-4 w-4" />
+                      Upcoming Payments
+                    </h4>
+                    <div className="space-y-2">
+                      {courseCharges.filter(c => c.status === 'unpaid').map(charge => (
+                        <div key={charge.id} className="flex items-center justify-between p-3 border rounded-lg">
+                          <div>
+                            <p className="font-medium">{charge.period}</p>
+                            <p className="text-sm text-muted-foreground">Due: {formatDate(charge.dueDate)}</p>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span className="font-semibold">{formatCurrency(charge.amount)}</span>
+                            <Button size="sm" onClick={() => {
+                              setCourseDetailOpen(false);
+                              handleProceedToCheckout(charge.id);
+                            }}>
+                              Pay
+                            </Button>
+                          </div>
                         </div>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          Use balance ({formatCurrency(balance)}) + pay remaining ({formatCurrency(remainingAfterBalance)}) online
-                        </p>
-                      </Label>
+                      ))}
                     </div>
-                  )}
-                </RadioGroup>
+                  </div>
+                </>
+              )}
+
+              {/* Payment History */}
+              <Separator />
+              <div>
+                <h4 className="font-semibold flex items-center gap-2 mb-3">
+                  <History className="h-4 w-4" />
+                  Payment History
+                </h4>
+                {courseTransactions.length > 0 ? (
+                  <div className="space-y-2">
+                    {courseTransactions.slice(0, 5).map(txn => (
+                      <div key={txn.id} className="flex items-center justify-between p-3 border rounded-lg">
+                        <div>
+                          <p className="font-medium">{txn.externalDescription || txn.description}</p>
+                          <p className="text-sm text-muted-foreground">{formatDate(txn.createdAt)}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className={`font-semibold ${txn.status === 'completed' ? 'text-success' : 'text-destructive'}`}>
+                            {formatCurrency(Math.abs(txn.amount))}
+                          </p>
+                          <Badge variant={txn.status === 'completed' ? 'success' : 'destructive'}>
+                            {txn.status === 'completed' ? 'Success' : 'Failed'}
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    No payment history for this course
+                  </p>
+                )}
               </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={closePaymentDialog}>
-                  Cancel
-                </Button>
-                <Button onClick={processPayment} disabled={processingPayment}>
-                  {processingPayment ? 'Processing...' : `Pay ${formatCurrency(selectedTotal)}`}
-                </Button>
-              </DialogFooter>
-            </>
+            </div>
           )}
         </DialogContent>
       </Dialog>
