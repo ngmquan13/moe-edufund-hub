@@ -31,10 +31,18 @@ const CitizenDashboard: React.FC = () => {
   // Force re-render when data changes
   useDataStore(() => account);
   
-  const transactions = account ? getTransactionsByAccount(account.id).slice(0, 5) : [];
+  // Sort transactions by newest first, then take top 5
+  const allTransactions = account ? getTransactionsByAccount(account.id) : [];
+  const transactions = [...allTransactions]
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .slice(0, 5);
   const outstandingCharges = account ? getOutstandingChargesByAccount(account.id) : [];
   const enrolments = citizenUser ? getEnrolmentsByHolder(citizenUser.id) : [];
-  const activeEnrolments = enrolments.filter(e => e.isActive);
+  // Sort enrolments by newest first
+  const sortedEnrolments = [...enrolments].sort((a, b) => 
+    new Date(b.startDate).getTime() - new Date(a.startDate).getTime()
+  );
+  const activeEnrolments = sortedEnrolments.filter(e => e.isActive);
   const totalOutstanding = outstandingCharges.filter(c => c.status === 'unpaid').reduce((sum, c) => sum + c.amount, 0);
   
   // Count paid courses

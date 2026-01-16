@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { TrendingUp, CreditCard, Receipt, Filter, Eye, CheckCircle2, XCircle } from 'lucide-react';
 import { CitizenLayout } from '@/components/layouts/CitizenLayout';
 import { useAuth } from '@/contexts/AuthContext';
+import { useDataStore } from '@/hooks/useDataStore';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -21,11 +22,12 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import {
-  getEducationAccount,
-  getTransactionsByAccount,
+  getEducationAccountByHolder,
+  getTransactionsByAccount
+} from '@/lib/dataStore';
+import {
   formatCurrency,
   formatDateTime,
-  formatDate,
   TransactionType,
   Transaction
 } from '@/lib/data';
@@ -36,7 +38,11 @@ const TransactionsPage: React.FC = () => {
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   
-  const account = citizenUser ? getEducationAccount(citizenUser.accountId) : null;
+  const account = citizenUser ? getEducationAccountByHolder(citizenUser.id) : null;
+  
+  // Force re-render when data changes
+  useDataStore(() => account);
+  
   const allTransactions = account ? getTransactionsByAccount(account.id) : [];
   
   // Sort transactions by newest first
