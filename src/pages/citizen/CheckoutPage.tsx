@@ -37,7 +37,7 @@ import {
   updateOutstandingCharge,
   addTransaction
 } from '@/lib/dataStore';
-import { formatCurrency, formatDate, OutstandingCharge } from '@/lib/data';
+import { formatCurrency, formatDate, OutstandingCharge, PaymentMethodBreakdown } from '@/lib/data';
 import { toast } from '@/hooks/use-toast';
 
 interface PaymentCard {
@@ -181,54 +181,62 @@ const CheckoutPage: React.FC = () => {
           cardPayment = remainingAfterBalance;
         }
 
-        // Build description and course details based on courses
-        const courseNames = selectedCharges.map(c => c.courseName);
-        const description = courseNames.length === 1 
-          ? `Payment for ${courseNames[0]}`
-          : `Payment for ${courseNames.length} courses`;
+        // Build course items with course codes for transaction details
+        const courseItems = selectedCharges.map(c => {
+          const course = getCourse(c.courseId);
+          return {
+            courseId: c.courseId,
+            courseCode: course?.code || c.courseName,
+            courseName: c.courseName,
+            amount: c.amount
+          };
+        });
 
-        // Build course items for transaction details
-        const courseItems = selectedCharges.map(c => ({
-          courseId: c.courseId,
-          courseName: c.courseName,
-          amount: c.amount
-        }));
+        // Build description using course codes: "Course Fee - CODE1" or "Course Fee - CODE1, CODE2"
+        const courseCodes = courseItems.map(c => c.courseCode);
+        const description = `Course Fee - ${courseCodes.join(', ')}`;
+
+        // Build payment breakdown for combined payments
+        const paymentBreakdown: PaymentMethodBreakdown[] = [];
+        const card = savedCards.find(c => c.id === selectedCardId);
+        
+        if (balanceUsed > 0) {
+          paymentBreakdown.push({
+            method: 'balance',
+            amount: balanceUsed
+          });
+        }
+        
+        if (cardPayment > 0) {
+          paymentBreakdown.push({
+            method: 'card',
+            amount: cardPayment,
+            cardLast4: card?.last4
+          });
+        }
 
         // Update account balance if using balance
         if (balanceUsed > 0) {
           updateEducationAccount(educationAccount.id, {
             balance: balance - balanceUsed
           });
-
-          addTransaction({
-            id: `TXN${String(Date.now()).slice(-6)}`,
-            accountId: educationAccount.id,
-            type: 'payment',
-            amount: -balanceUsed,
-            balanceAfter: balance - balanceUsed,
-            description: `${description} (Balance)`,
-            reference: `PAY-${Date.now()}`,
-            status: 'completed',
-            createdAt: new Date().toISOString(),
-            courses: courseItems,
-          });
         }
 
-        if (cardPayment > 0) {
-          const card = savedCards.find(c => c.id === selectedCardId);
-          addTransaction({
-            id: `TXN${String(Date.now()).slice(-6)}`,
-            accountId: educationAccount.id,
-            type: 'payment',
-            amount: -cardPayment,
-            balanceAfter: balance - balanceUsed,
-            description: `${description} (Card •••• ${card?.last4 || '****'})`,
-            reference: `PAY-CARD-${Date.now()}`,
-            status: 'completed',
-            createdAt: new Date().toISOString(),
-            courses: courseItems,
-          });
-        }
+        // Create a SINGLE transaction for all payment methods
+        addTransaction({
+          id: `TXN${String(Date.now()).slice(-6)}`,
+          accountId: educationAccount.id,
+          type: 'payment',
+          amount: -selectedTotal,
+          balanceAfter: balance - balanceUsed,
+          description: description,
+          reference: `PAY-${Date.now()}`,
+          status: 'completed',
+          createdAt: new Date().toISOString(),
+          courses: courseItems,
+          paymentMethod: paymentMethod,
+          paymentBreakdown: paymentBreakdown,
+        });
 
         // Update outstanding charges to paid
         selectedCharges.forEach(charge => {

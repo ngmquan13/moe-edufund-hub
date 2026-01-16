@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { TrendingUp, CreditCard, Receipt, Filter, Eye, CheckCircle2, XCircle } from 'lucide-react';
+import { TrendingUp, CreditCard, Receipt, Filter, Eye, CheckCircle2, XCircle, Wallet } from 'lucide-react';
 import { CitizenLayout } from '@/components/layouts/CitizenLayout';
 import { useAuth } from '@/contexts/AuthContext';
 import { useDataStore } from '@/hooks/useDataStore';
@@ -29,8 +29,7 @@ import {
   formatCurrency,
   formatDateTime,
   TransactionType,
-  Transaction,
-  TransactionCourseItem
+  Transaction
 } from '@/lib/data';
 
 const TransactionsPage: React.FC = () => {
@@ -80,25 +79,15 @@ const TransactionsPage: React.FC = () => {
   };
 
   const getTransactionTitle = (txn: Transaction) => {
-    // Use external description if available, otherwise use internal description
-    if (txn.externalDescription) {
-      return txn.externalDescription;
+    // For payments with course info, use "Course Fee - CODE1, CODE2" format
+    if (txn.courses && txn.courses.length > 0) {
+      const courseCodes = txn.courses.map(c => c.courseCode);
+      return `Course Fee - ${courseCodes.join(', ')}`;
     }
     
-    // Parse the description to make it more user-friendly
-    const desc = txn.description;
-    
-    // Check if it mentions multiple courses
-    if (desc.includes('courses')) {
-      const match = desc.match(/(\d+)\s*courses/i);
-      if (match) {
-        return `Payment for ${match[1]} courses`;
-      }
-    }
-    
-    // For single course payment
-    if (desc.toLowerCase().includes('payment for')) {
-      return desc;
+    // Use description if it already follows the format
+    if (txn.description.startsWith('Course Fee -')) {
+      return txn.description;
     }
     
     // For top-ups
@@ -106,7 +95,37 @@ const TransactionsPage: React.FC = () => {
       return 'Account Top-up';
     }
     
-    return desc;
+    return txn.description;
+  };
+
+  const getPaymentMethodBadge = (txn: Transaction) => {
+    if (!txn.paymentMethod) return null;
+    
+    switch (txn.paymentMethod) {
+      case 'balance':
+        return (
+          <Badge variant="outline" className="gap-1">
+            <Wallet className="h-3 w-3" />
+            Balance
+          </Badge>
+        );
+      case 'card':
+        return (
+          <Badge variant="outline" className="gap-1">
+            <CreditCard className="h-3 w-3" />
+            Card
+          </Badge>
+        );
+      case 'combined':
+        return (
+          <Badge variant="outline" className="gap-1">
+            <Wallet className="h-3 w-3" />
+            Combined
+          </Badge>
+        );
+      default:
+        return null;
+    }
   };
 
   const handleViewDetails = (txn: Transaction) => {
@@ -168,9 +187,10 @@ const TransactionsPage: React.FC = () => {
                     </div>
                     <div>
                       <p className="font-medium">{getTransactionTitle(txn)}</p>
-                      <div className="flex items-center gap-2 mt-1">
+                      <div className="flex items-center gap-2 mt-1 flex-wrap">
                         <span className="text-sm text-muted-foreground">{formatDateTime(txn.createdAt)}</span>
                         {getStatusBadge(txn.status)}
+                        {getPaymentMethodBadge(txn)}
                       </div>
                     </div>
                   </div>
@@ -242,8 +262,36 @@ const TransactionsPage: React.FC = () => {
                   <div className="space-y-2">
                     {selectedTransaction.courses.map((course, index) => (
                       <div key={index} className="flex justify-between items-center py-2 px-3 rounded-lg bg-secondary/50">
-                        <span className="text-sm font-medium">{course.courseName}</span>
+                        <div>
+                          <span className="text-sm font-medium">{course.courseName}</span>
+                          <span className="text-xs text-muted-foreground ml-2">({course.courseCode})</span>
+                        </div>
                         <span className="text-sm text-muted-foreground">{formatCurrency(course.amount)}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <Separator />
+                </div>
+              )}
+
+              {/* Payment Breakdown (for combined payments) */}
+              {selectedTransaction.paymentBreakdown && selectedTransaction.paymentBreakdown.length > 0 && (
+                <div className="space-y-3">
+                  <h4 className="text-sm font-medium text-muted-foreground">Payment Breakdown</h4>
+                  <div className="space-y-2">
+                    {selectedTransaction.paymentBreakdown.map((breakdown, index) => (
+                      <div key={index} className="flex justify-between items-center py-2 px-3 rounded-lg bg-secondary/50">
+                        <div className="flex items-center gap-2">
+                          {breakdown.method === 'balance' ? (
+                            <Wallet className="h-4 w-4 text-muted-foreground" />
+                          ) : (
+                            <CreditCard className="h-4 w-4 text-muted-foreground" />
+                          )}
+                          <span className="text-sm font-medium">
+                            {breakdown.method === 'balance' ? 'Account Balance' : `Card •••• ${breakdown.cardLast4}`}
+                          </span>
+                        </div>
+                        <span className="text-sm font-medium">{formatCurrency(breakdown.amount)}</span>
                       </div>
                     ))}
                   </div>

@@ -91,8 +91,15 @@ export interface Enrolment {
 
 export interface TransactionCourseItem {
   courseId: string;
+  courseCode: string;
   courseName: string;
   amount: number;
+}
+
+export interface PaymentMethodBreakdown {
+  method: 'balance' | 'card';
+  amount: number;
+  cardLast4?: string;
 }
 
 export interface Transaction {
@@ -109,6 +116,8 @@ export interface Transaction {
   courseId?: string;
   period?: string;
   courses?: TransactionCourseItem[]; // For multi-course payments
+  paymentMethod?: 'balance' | 'card' | 'combined'; // Payment method used
+  paymentBreakdown?: PaymentMethodBreakdown[]; // For combined payments
 }
 
 export interface OutstandingCharge {

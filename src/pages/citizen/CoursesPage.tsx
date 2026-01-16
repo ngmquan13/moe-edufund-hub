@@ -60,6 +60,7 @@ const CoursesPage: React.FC = () => {
   const [selectedCharges, setSelectedCharges] = useState<string[]>([]);
   const [courseDetailOpen, setCourseDetailOpen] = useState(false);
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
+  const [selectAll, setSelectAll] = useState(false);
 
   // Sort enrolments by newest first
   const sortedEnrolments = [...enrolments].sort((a, b) => 
@@ -79,9 +80,21 @@ const CoursesPage: React.FC = () => {
 
   const handleSelectCharge = (chargeId: string, checked: boolean) => {
     if (checked) {
-      setSelectedCharges([...selectedCharges, chargeId]);
+      const newSelected = [...selectedCharges, chargeId];
+      setSelectedCharges(newSelected);
+      setSelectAll(newSelected.length === pendingCharges.length);
     } else {
       setSelectedCharges(selectedCharges.filter(id => id !== chargeId));
+      setSelectAll(false);
+    }
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    setSelectAll(checked);
+    if (checked) {
+      setSelectedCharges(pendingCharges.map(c => c.id));
+    } else {
+      setSelectedCharges([]);
     }
   };
 
@@ -164,7 +177,8 @@ const CoursesPage: React.FC = () => {
                     return (
                       <div
                         key={enrolment.id}
-                        className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-lg border gap-4"
+                        className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-lg border gap-4 cursor-pointer transition-colors hover:bg-secondary/50"
+                        onClick={() => handleViewCourseDetails(course.id)}
                       >
                         <div className="flex items-start gap-4">
                           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
@@ -178,28 +192,27 @@ const CoursesPage: React.FC = () => {
                                 <Calendar className="h-4 w-4" />
                                 Enrolled: {formatDate(enrolment.startDate)}
                               </span>
-                              <span>{formatCurrency(course.monthlyFee)}/mo</span>
                             </div>
                           </div>
                         </div>
-                        <div className="flex items-center gap-3">
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => handleViewCourseDetails(course.id)}
-                          >
-                            <Eye className="h-4 w-4 mr-1" />
-                            View Details
-                          </Button>
+                        <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
                           {hasPendingPayment ? (
                             <>
                               <Badge variant="warning">Pending</Badge>
+                              <span className="font-bold text-lg text-foreground">
+                                {formatCurrency(charge?.amount || course.monthlyFee)}
+                              </span>
                               <Button size="sm" onClick={() => handleProceedToCheckout(charge?.id)}>
                                 Pay
                               </Button>
                             </>
                           ) : (
-                            <Badge variant="success">Paid</Badge>
+                            <>
+                              <span className="font-medium text-muted-foreground">
+                                {formatCurrency(course.monthlyFee)}/mo
+                              </span>
+                              <Badge variant="success">Paid</Badge>
+                            </>
                           )}
                         </div>
                       </div>
@@ -233,7 +246,12 @@ const CoursesPage: React.FC = () => {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="w-12"></TableHead>
+                        <TableHead className="w-12">
+                          <Checkbox
+                            checked={selectAll}
+                            onCheckedChange={(checked) => handleSelectAll(checked as boolean)}
+                          />
+                        </TableHead>
                         <TableHead>Course</TableHead>
                         <TableHead>Period</TableHead>
                         <TableHead>Due Date</TableHead>
