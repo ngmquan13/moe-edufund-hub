@@ -89,6 +89,12 @@ export interface Enrolment {
   isActive: boolean;
 }
 
+export interface TransactionCourseItem {
+  courseId: string;
+  courseName: string;
+  amount: number;
+}
+
 export interface Transaction {
   id: string;
   accountId: string;
@@ -102,6 +108,7 @@ export interface Transaction {
   createdAt: string;
   courseId?: string;
   period?: string;
+  courses?: TransactionCourseItem[]; // For multi-course payments
 }
 
 export interface OutstandingCharge {

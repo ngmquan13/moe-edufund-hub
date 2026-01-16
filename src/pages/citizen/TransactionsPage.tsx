@@ -29,7 +29,8 @@ import {
   formatCurrency,
   formatDateTime,
   TransactionType,
-  Transaction
+  Transaction,
+  TransactionCourseItem
 } from '@/lib/data';
 
 const TransactionsPage: React.FC = () => {
@@ -233,6 +234,22 @@ const TransactionsPage: React.FC = () => {
               </div>
 
               <Separator />
+
+              {/* Course List (for multi-course payments) */}
+              {selectedTransaction.courses && selectedTransaction.courses.length > 0 && (
+                <div className="space-y-3">
+                  <h4 className="text-sm font-medium text-muted-foreground">Courses Paid</h4>
+                  <div className="space-y-2">
+                    {selectedTransaction.courses.map((course, index) => (
+                      <div key={index} className="flex justify-between items-center py-2 px-3 rounded-lg bg-secondary/50">
+                        <span className="text-sm font-medium">{course.courseName}</span>
+                        <span className="text-sm text-muted-foreground">{formatCurrency(course.amount)}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <Separator />
+                </div>
+              )}
 
               {/* Transaction Info */}
               <div className="space-y-4">

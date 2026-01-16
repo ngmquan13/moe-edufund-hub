@@ -181,11 +181,18 @@ const CheckoutPage: React.FC = () => {
           cardPayment = remainingAfterBalance;
         }
 
-        // Build description based on courses
+        // Build description and course details based on courses
         const courseNames = selectedCharges.map(c => c.courseName);
         const description = courseNames.length === 1 
           ? `Payment for ${courseNames[0]}`
           : `Payment for ${courseNames.length} courses`;
+
+        // Build course items for transaction details
+        const courseItems = selectedCharges.map(c => ({
+          courseId: c.courseId,
+          courseName: c.courseName,
+          amount: c.amount
+        }));
 
         // Update account balance if using balance
         if (balanceUsed > 0) {
@@ -203,6 +210,7 @@ const CheckoutPage: React.FC = () => {
             reference: `PAY-${Date.now()}`,
             status: 'completed',
             createdAt: new Date().toISOString(),
+            courses: courseItems,
           });
         }
 
@@ -218,6 +226,7 @@ const CheckoutPage: React.FC = () => {
             reference: `PAY-CARD-${Date.now()}`,
             status: 'completed',
             createdAt: new Date().toISOString(),
+            courses: courseItems,
           });
         }
 
