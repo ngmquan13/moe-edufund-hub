@@ -61,8 +61,16 @@ const CoursesPage: React.FC = () => {
   const [courseDetailOpen, setCourseDetailOpen] = useState(false);
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
 
-  const activeEnrolments = enrolments.filter(e => e.isActive);
-  const pendingCharges = outstandingCharges.filter(c => c.status === 'unpaid');
+  // Sort enrolments by newest first
+  const sortedEnrolments = [...enrolments].sort((a, b) => 
+    new Date(b.startDate).getTime() - new Date(a.startDate).getTime()
+  );
+  const activeEnrolments = sortedEnrolments.filter(e => e.isActive);
+  
+  // Sort pending charges by due date (earliest first for payments)
+  const pendingCharges = outstandingCharges
+    .filter(c => c.status === 'unpaid')
+    .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
 
   const selectedTotal = selectedCharges.reduce((sum, id) => {
     const charge = pendingCharges.find(c => c.id === id);
@@ -99,9 +107,12 @@ const CoursesPage: React.FC = () => {
   const courseCharges = selectedCourseId 
     ? outstandingCharges.filter(c => c.courseId === selectedCourseId)
     : [];
+  // Sort course transactions by newest first
   const courseTransactions = selectedCourseId
-    ? transactions.filter(t => t.courseId === selectedCourseId || 
-        t.description?.toLowerCase().includes(selectedCourse?.name?.toLowerCase() || ''))
+    ? transactions
+        .filter(t => t.courseId === selectedCourseId || 
+          t.description?.toLowerCase().includes(selectedCourse?.name?.toLowerCase() || ''))
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     : [];
 
   // Calculate fee breakdown for selected course
