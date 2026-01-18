@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Search, Plus, Eye, MoreHorizontal, CheckCircle, XCircle, Download } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Search, Plus, MoreHorizontal, CheckCircle, XCircle, Download } from 'lucide-react';
 import { AdminLayout } from '@/components/layouts/AdminLayout';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Button } from '@/components/ui/button';
@@ -68,6 +68,7 @@ import {
 type SortOption = 'newest' | 'oldest' | 'name_asc' | 'name_desc' | 'balance_high' | 'balance_low';
 
 const AccountsPage: React.FC = () => {
+  const navigate = useNavigate();
   const educationAccounts = useDataStore(getEducationAccounts);
   const accountHolders = useDataStore(getAccountHolders);
   
@@ -614,7 +615,11 @@ const AccountsPage: React.FC = () => {
                 if (!holder) return null;
 
                 return (
-                  <TableRow key={account.id} className="group">
+                  <TableRow 
+                    key={account.id} 
+                    className="group cursor-pointer hover:bg-muted/50"
+                    onClick={() => navigate(`/admin/accounts/${account.id}`)}
+                  >
                     <TableCell>
                       <p className="font-medium">{holder.firstName} {holder.lastName}</p>
                     </TableCell>
@@ -629,7 +634,7 @@ const AccountsPage: React.FC = () => {
                         {getStatusLabel(account.status)}
                       </Badge>
                     </TableCell>
-                    <TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100 transition-opacity">
@@ -637,11 +642,6 @@ const AccountsPage: React.FC = () => {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem asChild>
-                            <Link to={`/admin/accounts/${account.id}`}>
-                              <Eye className="h-4 w-4 mr-2" /> View Details
-                            </Link>
-                          </DropdownMenuItem>
                           {account.status === 'suspended' ? (
                             <DropdownMenuItem onClick={() => handleReactivateAccount(account.id)}>
                               <CheckCircle className="h-4 w-4 mr-2" /> Re-activate Account

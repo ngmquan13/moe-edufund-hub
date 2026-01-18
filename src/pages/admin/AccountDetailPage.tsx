@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, User, Wallet, Calendar, Phone, Mail, MapPin, CreditCard, XCircle, Clock, TrendingUp, TrendingDown, Filter, BookOpen, DollarSign, CheckCircle, Eye, EyeOff, IdCard, Activity, UserCog, Building, CalendarClock, PlayCircle } from 'lucide-react';
+import { ArrowLeft, User, Wallet, Calendar, Phone, Mail, MapPin, XCircle, Clock, TrendingUp, TrendingDown, Filter, BookOpen, DollarSign, CheckCircle, Eye, EyeOff, IdCard, Activity, UserCog, Building, CalendarClock, PlayCircle } from 'lucide-react';
 import { updateEducationAccount, getAuditLogs, getEducationAccounts, addAuditLog } from '@/lib/dataStore';
 import { AdminLayout } from '@/components/layouts/AdminLayout';
 import { PageHeader } from '@/components/shared/PageHeader';
@@ -506,12 +506,6 @@ const AccountDetailPage: React.FC = () => {
         title={`${holder.firstName} ${holder.lastName}`}
         description={`Account ID: ${account.id}`}
       >
-        <Button variant="outline" asChild>
-          <Link to={`/admin/topup-management`}>
-            <CreditCard className="h-4 w-4 mr-2" />
-            Top-up
-          </Link>
-        </Button>
         {account.status === 'active' && (
           <Button variant="destructive" onClick={handleSuspend}>
             <XCircle className="h-4 w-4 mr-2" />
