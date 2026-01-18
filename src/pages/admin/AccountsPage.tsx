@@ -65,12 +65,15 @@ import {
   AccountActivationStatus
 } from '@/lib/data';
 
+type SortOption = 'newest' | 'oldest' | 'name_asc' | 'name_desc' | 'balance_high' | 'balance_low';
+
 const AccountsPage: React.FC = () => {
   const educationAccounts = useDataStore(getEducationAccounts);
   const accountHolders = useDataStore(getAccountHolders);
   
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [sortBy, setSortBy] = useState<SortOption>('newest');
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   
   // Form states
@@ -94,10 +97,28 @@ const AccountsPage: React.FC = () => {
     return '****' + nric.slice(-4);
   };
 
-  // Sort accounts by newest first (by openedAt date)
-  const sortedAccounts = [...educationAccounts].sort((a, b) => 
-    new Date(b.openedAt).getTime() - new Date(a.openedAt).getTime()
-  );
+  // Sort accounts based on selected option
+  const sortedAccounts = [...educationAccounts].sort((a, b) => {
+    const holderA = getAccountHolder(a.holderId);
+    const holderB = getAccountHolder(b.holderId);
+    
+    switch (sortBy) {
+      case 'newest':
+        return new Date(b.openedAt).getTime() - new Date(a.openedAt).getTime();
+      case 'oldest':
+        return new Date(a.openedAt).getTime() - new Date(b.openedAt).getTime();
+      case 'name_asc':
+        return (holderA?.firstName || '').localeCompare(holderB?.firstName || '');
+      case 'name_desc':
+        return (holderB?.firstName || '').localeCompare(holderA?.firstName || '');
+      case 'balance_high':
+        return b.balance - a.balance;
+      case 'balance_low':
+        return a.balance - b.balance;
+      default:
+        return new Date(b.openedAt).getTime() - new Date(a.openedAt).getTime();
+    }
+  });
 
   const filteredAccounts = sortedAccounts.filter(account => {
     const holder = getAccountHolder(account.holderId);
@@ -554,6 +575,19 @@ const AccountsPage: React.FC = () => {
                   <SelectItem value="closed">Closed</SelectItem>
                 </SelectContent>
               </Select>
+              <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortOption)}>
+                <SelectTrigger className="w-[160px]">
+                  <SelectValue placeholder="Sort by" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="newest">Newest First</SelectItem>
+                  <SelectItem value="oldest">Oldest First</SelectItem>
+                  <SelectItem value="name_asc">Name (A-Z)</SelectItem>
+                  <SelectItem value="name_desc">Name (Z-A)</SelectItem>
+                  <SelectItem value="balance_high">Balance (High)</SelectItem>
+                  <SelectItem value="balance_low">Balance (Low)</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </CardContent>
@@ -607,9 +641,6 @@ const AccountsPage: React.FC = () => {
                             <Link to={`/admin/accounts/${account.id}`}>
                               <Eye className="h-4 w-4 mr-2" /> View Details
                             </Link>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem asChild>
-                            <Link to="/admin/topup-management">Top-up Account</Link>
                           </DropdownMenuItem>
                           {account.status === 'suspended' ? (
                             <DropdownMenuItem onClick={() => handleReactivateAccount(account.id)}>

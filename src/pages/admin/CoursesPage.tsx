@@ -101,6 +101,8 @@ const CoursesPage: React.FC = () => {
   const transactions = useDataStore(getTransactions);
   
   const [searchQuery, setSearchQuery] = useState('');
+  const [providerFilter, setProviderFilter] = useState('all');
+  const [paymentTypeFilter, setPaymentTypeFilter] = useState('all');
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [manageStudentsDialogOpen, setManageStudentsDialogOpen] = useState(false);
@@ -126,6 +128,9 @@ const CoursesPage: React.FC = () => {
   const [billingCycleError, setBillingCycleError] = useState<string | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Get unique providers for filter
+  const uniqueProviders = [...new Set(courses.map(c => c.provider).filter(Boolean))].sort();
 
   // Calculate duration in months between start and end dates
   const durationMonths = useMemo(() => {
@@ -178,16 +183,23 @@ const CoursesPage: React.FC = () => {
   // Check if form is valid for submission
   const isFormValid = useMemo(() => {
     const baseValid = formCode && formName && formProvider && formFee && formDescription;
-    if (formPaymentType === 'recurring' && formStartDate && formEndDate) {
-      return baseValid && billingCycleValidation[formBillingCycle].enabled && !billingCycleError;
+    if (formPaymentType === 'recurring') {
+      // Billing cycle is mandatory for recurring payments
+      if (!formBillingCycle) return false;
+      if (formStartDate && formEndDate) {
+        return baseValid && billingCycleValidation[formBillingCycle].enabled && !billingCycleError;
+      }
     }
     return baseValid;
   }, [formCode, formName, formProvider, formFee, formDescription, formPaymentType, formStartDate, formEndDate, formBillingCycle, billingCycleValidation, billingCycleError]);
 
-  const filteredCourses = courses.filter(course =>
-    course.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    course.code.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredCourses = courses.filter(course => {
+    const matchesSearch = course.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      course.code.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesProvider = providerFilter === 'all' || course.provider === providerFilter;
+    const matchesPaymentType = paymentTypeFilter === 'all' || course.paymentType === paymentTypeFilter;
+    return matchesSearch && matchesProvider && matchesPaymentType;
+  });
 
   const filteredStudents = accountHolders.filter(holder => {
     const matchesSearch = 
@@ -508,7 +520,7 @@ const CoursesPage: React.FC = () => {
       {/* Recurring Payment: Billing Cycle with Validation */}
       {formPaymentType === 'recurring' && (
         <div className="space-y-2">
-          <Label>Billing Cycle</Label>
+          <Label>Billing Cycle *</Label>
           <TooltipProvider>
             <Select 
               value={formBillingCycle} 
@@ -715,17 +727,42 @@ const CoursesPage: React.FC = () => {
         </div>
       </PageHeader>
 
-      {/* Search */}
+      {/* Search & Filters */}
       <Card className="mb-6">
         <CardContent className="pt-6">
-          <div className="relative max-w-md">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Search courses..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
+          <div className="flex flex-col gap-4 md:flex-row md:items-center">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search courses..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <div className="flex gap-3">
+              <Select value={providerFilter} onValueChange={setProviderFilter}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Provider" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Providers</SelectItem>
+                  {uniqueProviders.map(provider => (
+                    <SelectItem key={provider} value={provider}>{provider}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={paymentTypeFilter} onValueChange={setPaymentTypeFilter}>
+                <SelectTrigger className="w-[160px]">
+                  <SelectValue placeholder="Payment Type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Types</SelectItem>
+                  <SelectItem value="one_time">One-time</SelectItem>
+                  <SelectItem value="recurring">Recurring</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -735,9 +772,15 @@ const CoursesPage: React.FC = () => {
         {filteredCourses.map((course) => {
           const enrolments = getEnrolmentsByCourse(course.id);
           const activeEnrolments = enrolments.filter(e => e.isActive);
+          // Get created date from course data or fallback to current date
+          const createdDate = course.startDate ? new Date(course.startDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '-';
 
           return (
-            <Card key={course.id} className="overflow-hidden group hover:shadow-lg transition-shadow">
+            <Card 
+              key={course.id} 
+              className="overflow-hidden group hover:shadow-lg transition-shadow cursor-pointer"
+              onClick={() => handleViewDetails(course)}
+            >
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between">
                   <div>
@@ -750,7 +793,11 @@ const CoursesPage: React.FC = () => {
                 </div>
               </CardHeader>
               <CardContent>
-                <p className="text-sm text-muted-foreground mb-4">{course.description}</p>
+                <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{course.description}</p>
+                
+                <p className="text-xs text-muted-foreground mb-3">
+                  Created: {createdDate}
+                </p>
                 
                 <div className="flex flex-wrap gap-2 mb-4">
                   <Badge variant="outline">
@@ -768,7 +815,7 @@ const CoursesPage: React.FC = () => {
                   )}
                 </div>
                 
-                <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Users className="h-4 w-4 text-muted-foreground" />
                     <span className="text-sm">{activeEnrolments.length} enrolled</span>
@@ -778,15 +825,6 @@ const CoursesPage: React.FC = () => {
                     {course.paymentType === 'recurring' && '/mo'}
                   </span>
                 </div>
-
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="w-full"
-                  onClick={() => handleViewDetails(course)}
-                >
-                  <Eye className="h-4 w-4 mr-2" /> View Details
-                </Button>
               </CardContent>
             </Card>
           );
