@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, Plus, MoreHorizontal, CheckCircle, XCircle, Download } from 'lucide-react';
+import { Search, Plus, Download } from 'lucide-react';
 import { AdminLayout } from '@/components/layouts/AdminLayout';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Button } from '@/components/ui/button';
@@ -27,12 +27,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import {
   Dialog,
   DialogContent,
@@ -65,7 +59,7 @@ import {
   AccountActivationStatus
 } from '@/lib/data';
 
-type SortOption = 'newest' | 'oldest' | 'name_asc' | 'name_desc' | 'balance_high' | 'balance_low';
+type SortOption = 'newest' | 'oldest' | 'name_asc' | 'name_desc';
 
 const AccountsPage: React.FC = () => {
   const navigate = useNavigate();
@@ -112,10 +106,6 @@ const AccountsPage: React.FC = () => {
         return (holderA?.firstName || '').localeCompare(holderB?.firstName || '');
       case 'name_desc':
         return (holderB?.firstName || '').localeCompare(holderA?.firstName || '');
-      case 'balance_high':
-        return b.balance - a.balance;
-      case 'balance_low':
-        return a.balance - b.balance;
       default:
         return new Date(b.openedAt).getTime() - new Date(a.openedAt).getTime();
     }
@@ -136,50 +126,6 @@ const AccountsPage: React.FC = () => {
     return matchesSearch && matchesStatus;
   });
 
-  const handleSuspendAccount = (accountId: string) => {
-    updateEducationAccount(accountId, { 
-      status: 'suspended',
-      suspendedAt: new Date().toISOString().split('T')[0]
-    });
-    addAuditLog({
-      id: `AUD${String(Date.now()).slice(-6)}`,
-      action: 'Account Suspended',
-      entityType: 'EducationAccount',
-      entityId: accountId,
-      userId: 'USR001',
-      userName: 'John Tan',
-      userRole: 'admin',
-      details: `Account ${accountId} has been suspended`,
-      createdAt: new Date().toISOString(),
-    });
-    toast({
-      title: "Account Suspended",
-      description: `Account ${accountId} has been suspended.`,
-      variant: "destructive"
-    });
-  };
-
-  const handleReactivateAccount = (accountId: string) => {
-    updateEducationAccount(accountId, { 
-      status: 'active',
-      suspendedAt: null
-    });
-    addAuditLog({
-      id: `AUD${String(Date.now()).slice(-6)}`,
-      action: 'Account Reactivated',
-      entityType: 'EducationAccount',
-      entityId: accountId,
-      userId: 'USR001',
-      userName: 'John Tan',
-      userRole: 'admin',
-      details: `Account ${accountId} has been reactivated`,
-      createdAt: new Date().toISOString(),
-    });
-    toast({
-      title: "Account Reactivated",
-      description: `Account ${accountId} has been reactivated.`,
-    });
-  };
 
   const resetForm = () => {
     setNricInput('');
@@ -585,8 +531,6 @@ const AccountsPage: React.FC = () => {
                   <SelectItem value="oldest">Oldest First</SelectItem>
                   <SelectItem value="name_asc">Name (A-Z)</SelectItem>
                   <SelectItem value="name_desc">Name (Z-A)</SelectItem>
-                  <SelectItem value="balance_high">Balance (High)</SelectItem>
-                  <SelectItem value="balance_low">Balance (Low)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -606,7 +550,6 @@ const AccountsPage: React.FC = () => {
                 <TableHead>Age</TableHead>
                 <TableHead className="text-right">Balance</TableHead>
                 <TableHead>Account Status</TableHead>
-                <TableHead className="w-[60px]"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -633,26 +576,6 @@ const AccountsPage: React.FC = () => {
                       <Badge variant={account.status as any}>
                         {getStatusLabel(account.status)}
                       </Badge>
-                    </TableCell>
-                    <TableCell onClick={(e) => e.stopPropagation()}>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100 transition-opacity">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          {account.status === 'suspended' ? (
-                            <DropdownMenuItem onClick={() => handleReactivateAccount(account.id)}>
-                              <CheckCircle className="h-4 w-4 mr-2" /> Re-activate Account
-                            </DropdownMenuItem>
-                          ) : account.status === 'active' ? (
-                            <DropdownMenuItem className="text-destructive" onClick={() => handleSuspendAccount(account.id)}>
-                              <XCircle className="h-4 w-4 mr-2" /> Suspend Account
-                            </DropdownMenuItem>
-                          ) : null}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
                     </TableCell>
                   </TableRow>
                 );
