@@ -556,11 +556,25 @@ const TopUpManagementPage: React.FC = () => {
       {(scheduledTopUps.length > 0 || scheduledBatches.length > 0) && (
         <Card className="mb-6">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Clock className="h-5 w-5" />
-              Upcoming Top-ups
-            </CardTitle>
-            <CardDescription>Scheduled top-ups pending execution</CardDescription>
+            <div className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Clock className="h-5 w-5" />
+                  Upcoming Top-ups
+                </CardTitle>
+                <CardDescription>Scheduled top-ups pending execution</CardDescription>
+              </div>
+              <Select value={transactionType} onValueChange={(v) => setTransactionType(v as 'all' | 'individual' | 'batch')}>
+                <SelectTrigger className="w-[140px]">
+                  <SelectValue placeholder="Type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Types</SelectItem>
+                  <SelectItem value="individual">Ad-hoc</SelectItem>
+                  <SelectItem value="batch">Batch</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </CardHeader>
           <CardContent>
             <Table>
@@ -577,7 +591,7 @@ const TopUpManagementPage: React.FC = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {scheduledBatches.map(batch => (
+                {transactionType !== 'individual' && scheduledBatches.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map(batch => (
                   <TableRow key={batch.id}>
                     <TableCell className="font-mono">{batch.id}</TableCell>
                     <TableCell><Badge variant="secondary">Batch</Badge></TableCell>
@@ -602,7 +616,7 @@ const TopUpManagementPage: React.FC = () => {
                     </TableCell>
                   </TableRow>
                 ))}
-                {scheduledTopUps.slice(0, 5).map(txn => {
+                {transactionType !== 'batch' && scheduledTopUps.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 5).map(txn => {
                   const account = getEducationAccount(txn.accountId);
                   const holder = account ? getAccountHolder(account.holderId) : null;
                   return (
@@ -1143,30 +1157,15 @@ const TopUpManagementPage: React.FC = () => {
             <div className="space-y-4">
               <h4 className="font-medium">Amount Configuration</h4>
               
-              <div className="flex items-end gap-4">
-                <div className="flex-1 space-y-2">
-                  <Label>Amount (SGD) *</Label>
-                  <Input
-                    type="number"
-                    placeholder="0.00"
-                    value={batchAmount}
-                    onChange={(e) => setBatchAmount(e.target.value)}
-                  />
-                </div>
-                <RadioGroup 
-                  value={batchAmountType} 
-                  onValueChange={(v) => setBatchAmountType(v as 'even' | 'per_account')}
-                  className="flex gap-4"
-                >
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="per_account" id="per_account" />
-                    <Label htmlFor="per_account">Per Account</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="even" id="even" />
-                    <Label htmlFor="even">Distribute Evenly</Label>
-                  </div>
-                </RadioGroup>
+              <div className="space-y-2">
+                <Label>Amount per Account (SGD) *</Label>
+                <Input
+                  type="number"
+                  placeholder="0.00"
+                  value={batchAmount}
+                  onChange={(e) => setBatchAmount(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">Each eligible account will receive this amount</p>
               </div>
             </div>
 
@@ -1238,21 +1237,39 @@ const TopUpManagementPage: React.FC = () => {
             </Button>
 
             {showPreview && eligibleAccounts.length > 0 && (
-              <div className="border rounded-lg max-h-40 overflow-y-auto">
-                {eligibleAccounts.slice(0, 10).map(account => {
-                  const holder = getAccountHolder(account.holderId);
-                  return (
-                    <div key={account.id} className="flex items-center justify-between p-3 border-b last:border-b-0">
-                      <div>
-                        <p className="font-medium">{holder?.firstName} {holder?.lastName}</p>
-                        <p className="text-sm text-muted-foreground">{account.id}</p>
-                      </div>
-                      <span className="text-sm">{formatCurrency(account.balance)}</span>
-                    </div>
-                  );
-                })}
+              <div className="border rounded-lg max-h-48 overflow-y-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="text-xs">
+                      <TableHead className="h-9">Name</TableHead>
+                      <TableHead className="h-9">Account ID</TableHead>
+                      <TableHead className="h-9">Age</TableHead>
+                      <TableHead className="h-9">Schooling Status</TableHead>
+                      <TableHead className="h-9 text-right">Balance</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {eligibleAccounts.slice(0, 10).map(account => {
+                      const holder = getAccountHolder(account.holderId);
+                      return (
+                        <TableRow key={account.id} className="text-sm">
+                          <TableCell className="py-2">{holder?.firstName} {holder?.lastName}</TableCell>
+                          <TableCell className="py-2 font-mono text-xs">{account.id}</TableCell>
+                          <TableCell className="py-2">{holder?.age || '-'}</TableCell>
+                          <TableCell className="py-2">
+                            <Badge variant="outline" className="text-[10px]">
+                              {holder?.schoolingStatus === 'in_school' ? 'In School' : 
+                               holder?.schoolingStatus === 'not_in_school' ? 'Not In School' : '-'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="py-2 text-right">{formatCurrency(account.balance)}</TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
                 {eligibleAccounts.length > 10 && (
-                  <div className="p-3 text-center text-sm text-muted-foreground">
+                  <div className="p-3 text-center text-sm text-muted-foreground border-t">
                     ...and {eligibleAccounts.length - 10} more accounts
                   </div>
                 )}

@@ -45,12 +45,19 @@ interface LifecycleSession {
   fetchDate?: string;
   activationDate?: string;
   generatedAccounts: GeneratedAccount[];
+  skippedRecords: SkippedRecord[];
 }
 
 interface GeneratedAccount {
   accountHolderId: string;
   name: string;
   nric: string;
+}
+
+interface SkippedRecord {
+  name: string;
+  nric: string;
+  reason: string;
 }
 
 // Demo names for generated accounts
@@ -85,6 +92,7 @@ const AccountLifecycleSection: React.FC = () => {
   // Session details view
   const [selectedSession, setSelectedSession] = useState<LifecycleSession | null>(null);
   const [sessionDetailsOpen, setSessionDetailsOpen] = useState(false);
+  const [nricVisibility, setNricVisibility] = useState<Record<string, boolean>>({});
 
   const generateSessionId = () => `LS-${Date.now().toString(36).toUpperCase()}`;
   const generateAccountHolderId = (index: number) => `AH${(1000 + index).toString().padStart(4, '0')}`;
@@ -139,16 +147,28 @@ const AccountLifecycleSection: React.FC = () => {
     
     // Generate accounts
     const generatedAccounts: GeneratedAccount[] = [];
+    const skippedRecords: SkippedRecord[] = [];
+    
     for (let i = 0; i < recordsCreated; i++) {
       const nric = generateNric(i + Math.floor(Math.random() * 1000));
+      const fullNric = nric;
       // Skip if NRIC exists (deduplication)
       if (!existingNrics.has(nric)) {
         generatedAccounts.push({
           accountHolderId: generateAccountHolderId(generatedAccounts.length + 1),
           name: demoNames[i % demoNames.length],
-          nric: `****${nric.slice(-4)}`, // Masked NRIC
+          nric: fullNric, // Store full NRIC
         });
       }
+    }
+    
+    // Generate skipped records
+    for (let i = 0; i < duplicatesFound; i++) {
+      skippedRecords.push({
+        name: demoNames[(recordsCreated + i) % demoNames.length],
+        nric: `S${(9000000 + recordsCreated + i).toString()}${String.fromCharCode(65 + ((recordsCreated + i) % 26))}`,
+        reason: 'Duplicate NRIC - account already exists',
+      });
     }
     
     const executionTime = Date.now() - startTime;
@@ -165,9 +185,10 @@ const AccountLifecycleSection: React.FC = () => {
       status: 'completed',
       adminName: 'John Tan',
       executionTimeMs: executionTime,
-      fetchDate: fetchScheduleDate ? format(fetchScheduleDate, 'yyyy-MM-dd') : undefined,
-      activationDate: activationScheduleDate ? format(activationScheduleDate, 'yyyy-MM-dd') : undefined,
+      fetchDate: fetchScheduleDate ? format(fetchScheduleDate, 'dd MMM') : undefined,
+      activationDate: activationScheduleDate ? format(activationScheduleDate, 'dd MMM') : undefined,
       generatedAccounts,
+      skippedRecords,
     };
     
     setLifecycleSessions(prev => [newSession, ...prev]);
@@ -177,6 +198,22 @@ const AccountLifecycleSection: React.FC = () => {
       title: "Simulation Complete",
       description: `Session ${sessionId}: Created ${generatedAccounts.length} pending accounts. ${duplicatesFound} skipped (duplicates).`,
     });
+  };
+
+  // Toggle NRIC visibility
+  const toggleNricVisibility = (accountId: string) => {
+    setNricVisibility(prev => ({
+      ...prev,
+      [accountId]: !prev[accountId]
+    }));
+  };
+
+  // Get masked/unmasked NRIC
+  const getDisplayNric = (accountId: string, nric: string) => {
+    if (nricVisibility[accountId]) {
+      return nric;
+    }
+    return `****${nric.slice(-4)}`;
   };
 
   // Open session details
@@ -234,10 +271,10 @@ const AccountLifecycleSection: React.FC = () => {
             
             {/* Date Pickers Row */}
             <div className="grid gap-4 sm:grid-cols-3">
-              {/* Fetch Schedule Date */}
+              {/* Fetch Schedule Date - Day/Month only */}
               <div className="space-y-2">
                 <label className="text-xs font-medium text-muted-foreground">
-                  Fetch Schedule Date
+                  Fetch Schedule (Day/Month)
                 </label>
                 <Popover>
                   <PopoverTrigger asChild>
@@ -249,7 +286,7 @@ const AccountLifecycleSection: React.FC = () => {
                       )}
                     >
                       <Calendar className="mr-2 h-4 w-4" />
-                      {fetchScheduleDate ? format(fetchScheduleDate, "dd MMM yyyy") : "Select date"}
+                      {fetchScheduleDate ? format(fetchScheduleDate, "dd MMM") : "Select date"}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
@@ -264,10 +301,10 @@ const AccountLifecycleSection: React.FC = () => {
                 </Popover>
               </div>
               
-              {/* Activation Schedule Date */}
+              {/* Activation Schedule Date - Day/Month only */}
               <div className="space-y-2">
                 <label className="text-xs font-medium text-muted-foreground">
-                  Activation Schedule Date
+                  Activation Schedule (Day/Month)
                 </label>
                 <Popover>
                   <PopoverTrigger asChild>
@@ -279,7 +316,7 @@ const AccountLifecycleSection: React.FC = () => {
                       )}
                     >
                       <Calendar className="mr-2 h-4 w-4" />
-                      {activationScheduleDate ? format(activationScheduleDate, "dd MMM yyyy") : "Select date"}
+                      {activationScheduleDate ? format(activationScheduleDate, "dd MMM") : "Select date"}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
@@ -294,10 +331,10 @@ const AccountLifecycleSection: React.FC = () => {
                 </Popover>
               </div>
               
-              {/* Close Schedule Date */}
+              {/* Close Schedule Date - Day/Month only */}
               <div className="space-y-2">
                 <label className="text-xs font-medium text-muted-foreground">
-                  Close Schedule Date
+                  Close Schedule (Day/Month)
                 </label>
                 <Popover>
                   <PopoverTrigger asChild>
@@ -309,7 +346,7 @@ const AccountLifecycleSection: React.FC = () => {
                       )}
                     >
                       <Calendar className="mr-2 h-4 w-4" />
-                      {closeScheduleDate ? format(closeScheduleDate, "dd MMM yyyy") : "Select date"}
+                      {closeScheduleDate ? format(closeScheduleDate, "dd MMM") : "Select date"}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
@@ -479,10 +516,6 @@ const AccountLifecycleSection: React.FC = () => {
                   <Badge variant="outline" className="font-mono text-xs">{selectedSession.id}</Badge>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-xs text-muted-foreground">Execution Time</span>
-                  <span className="text-sm font-medium">{selectedSession.executionTimeMs}ms</span>
-                </div>
-                <div className="flex justify-between items-center">
                   <span className="text-xs text-muted-foreground">Admin</span>
                   <div className="flex items-center gap-1.5">
                     <User className="h-3 w-3 text-muted-foreground" />
@@ -545,9 +578,9 @@ const AccountLifecycleSection: React.FC = () => {
               {/* Generated Accounts Table */}
               <div className="border rounded-lg">
                 <div className="px-3 py-2 border-b bg-muted/30">
-                  <span className="text-xs font-medium">Generated Accounts</span>
+                  <span className="text-xs font-medium">Generated Accounts ({selectedSession.recordsCreated})</span>
                 </div>
-                <div className="max-h-[250px] overflow-auto">
+                <div className="max-h-[200px] overflow-auto">
                   <Table>
                     <TableHeader>
                       <TableRow className="text-[11px]">
@@ -564,8 +597,24 @@ const AccountLifecycleSection: React.FC = () => {
                               {account.accountHolderId}
                             </TableCell>
                             <TableCell className="py-1.5">{account.name}</TableCell>
-                            <TableCell className="py-1.5 font-mono text-muted-foreground">
-                              {account.nric}
+                            <TableCell className="py-1.5">
+                              <div className="flex items-center gap-1">
+                                <span className="font-mono text-muted-foreground">
+                                  {getDisplayNric(account.accountHolderId, account.nric)}
+                                </span>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-5 w-5 p-0"
+                                  onClick={() => toggleNricVisibility(account.accountHolderId)}
+                                >
+                                  {nricVisibility[account.accountHolderId] ? (
+                                    <Eye className="h-3 w-3" />
+                                  ) : (
+                                    <Eye className="h-3 w-3 text-muted-foreground" />
+                                  )}
+                                </Button>
+                              </div>
                             </TableCell>
                           </TableRow>
                         ))
@@ -580,6 +629,41 @@ const AccountLifecycleSection: React.FC = () => {
                   </Table>
                 </div>
               </div>
+
+              {/* Skipped Records Table */}
+              {selectedSession.skippedRecords && selectedSession.skippedRecords.length > 0 && (
+                <div className="border rounded-lg border-amber-200 dark:border-amber-900">
+                  <div className="px-3 py-2 border-b bg-amber-50 dark:bg-amber-950/30">
+                    <span className="text-xs font-medium text-amber-700 dark:text-amber-400">
+                      Skipped Records ({selectedSession.recordsSkipped})
+                    </span>
+                  </div>
+                  <div className="max-h-[150px] overflow-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="text-[11px]">
+                          <TableHead className="h-8">Name</TableHead>
+                          <TableHead className="h-8">NRIC</TableHead>
+                          <TableHead className="h-8">Reason</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {selectedSession.skippedRecords.map((record, index) => (
+                          <TableRow key={index} className="text-[11px]">
+                            <TableCell className="py-1.5">{record.name}</TableCell>
+                            <TableCell className="py-1.5 font-mono text-muted-foreground">
+                              ****{record.nric.slice(-4)}
+                            </TableCell>
+                            <TableCell className="py-1.5 text-amber-600 dark:text-amber-400">
+                              {record.reason}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+              )}
 
               {/* Validation Note */}
               <div className="bg-blue-50 dark:bg-blue-950/30 rounded-lg p-3 border border-blue-200 dark:border-blue-900">

@@ -344,6 +344,10 @@ const CourseDetailPage: React.FC = () => {
               <p className="text-muted-foreground">Payment Deadline</p>
               <p className="font-medium">{course.paymentDeadlineDays ? `${course.paymentDeadlineDays} days` : '-'}</p>
             </div>
+            <div>
+              <p className="text-muted-foreground">Created Date</p>
+              <p className="font-medium">{course.startDate || '-'}</p>
+            </div>
             {course.startDate && (
               <div>
                 <p className="text-muted-foreground">Start Date</p>
@@ -389,7 +393,7 @@ const CourseDetailPage: React.FC = () => {
         <Card>
           <CardContent className="pt-4 pb-3">
             <p className="text-3xl font-bold text-amber-600">{formatCurrency(courseStats.totalOutstanding)}</p>
-            <p className="text-sm text-muted-foreground">Outstanding</p>
+            <p className="text-sm text-muted-foreground">Total Outstanding</p>
           </CardContent>
         </Card>
       </div>
@@ -399,7 +403,7 @@ const CourseDetailPage: React.FC = () => {
         <Button variant="outline" onClick={handleOpenEditDialog}>
           <Edit className="h-4 w-4 mr-2" /> Edit Course
         </Button>
-        <Button variant="outline" onClick={handleOpenAddStudents}>
+        <Button onClick={handleOpenAddStudents}>
           <UserPlus className="h-4 w-4 mr-2" /> Add Students
         </Button>
       </div>
