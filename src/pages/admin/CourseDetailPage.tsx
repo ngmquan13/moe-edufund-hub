@@ -259,9 +259,17 @@ const CourseDetailPage: React.FC = () => {
     if (selectedStudentIds.length === 0) return;
 
     let addedCount = 0;
+    let skippedCount = 0;
     selectedStudentIds.forEach(holderId => {
       const existingEnrolments = getEnrolmentsByCourse(course.id);
       const existing = existingEnrolments.find(e => e.holderId === holderId && e.isActive);
+      
+      // Check if account is active
+      const holderAccount = educationAccounts.find(acc => acc.holderId === holderId);
+      if (holderAccount?.status !== 'active') {
+        skippedCount++;
+        return;
+      }
 
       if (!existing) {
         addEnrolment({
@@ -279,7 +287,13 @@ const CourseDetailPage: React.FC = () => {
     if (addedCount > 0) {
       toast({
         title: "Students Enrolled",
-        description: `${addedCount} student(s) enrolled in ${course.name}.`,
+        description: `${addedCount} student(s) enrolled in ${course.name}.${skippedCount > 0 ? ` ${skippedCount} skipped (non-active accounts).` : ''}`,
+      });
+    } else if (skippedCount > 0) {
+      toast({
+        title: "No Students Enrolled",
+        description: `${skippedCount} student(s) skipped because their accounts are not active.`,
+        variant: "destructive",
       });
     }
 
@@ -296,9 +310,14 @@ const CourseDetailPage: React.FC = () => {
     });
   };
   
-  // Get enrolled student IDs for filtering
+  // Get enrolled student IDs for filtering - only show active accounts
   const enrolledStudentIds = activeEnrolments.map(e => e.holderId);
-  const availableStudents = filteredStudents.filter(h => !enrolledStudentIds.includes(h.id));
+  const availableStudents = filteredStudents.filter(h => {
+    if (enrolledStudentIds.includes(h.id)) return false;
+    // Only show students with active accounts
+    const holderAccount = educationAccounts.find(acc => acc.holderId === h.id);
+    return holderAccount?.status === 'active';
+  });
   
   return (
     <AdminLayout>
@@ -403,7 +422,7 @@ const CourseDetailPage: React.FC = () => {
         <Button variant="outline" onClick={handleOpenEditDialog}>
           <Edit className="h-4 w-4 mr-2" /> Edit Course
         </Button>
-        <Button onClick={handleOpenAddStudents}>
+        <Button className="bg-blue-600 hover:bg-blue-700" onClick={handleOpenAddStudents}>
           <UserPlus className="h-4 w-4 mr-2" /> Add Students
         </Button>
       </div>
@@ -420,14 +439,13 @@ const CourseDetailPage: React.FC = () => {
                   <TableHead>Account ID</TableHead>
                   <TableHead>Account Status</TableHead>
                   <TableHead>Enrollment Date</TableHead>
-                  <TableHead>Payment Status</TableHead>
                   <TableHead className="w-[60px]"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {studentList.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
                       No students enrolled in this course
                     </TableCell>
                   </TableRow>
@@ -438,7 +456,6 @@ const CourseDetailPage: React.FC = () => {
                       <TableCell className="font-mono text-sm">{student.accountId}</TableCell>
                       <TableCell>{getAccountStatusBadge(student.accountStatus)}</TableCell>
                       <TableCell>{student.enrollmentDate}</TableCell>
-                      <TableCell>{getPaymentStatusBadge(student.paymentStatus)}</TableCell>
                       <TableCell>
                         <Button
                           variant="ghost"

@@ -55,9 +55,9 @@ interface GeneratedAccount {
 }
 
 interface SkippedRecord {
+  accountId: string;
   name: string;
   nric: string;
-  reason: string;
 }
 
 // Demo names for generated accounts
@@ -92,7 +92,8 @@ const AccountLifecycleSection: React.FC = () => {
   // Session details view
   const [selectedSession, setSelectedSession] = useState<LifecycleSession | null>(null);
   const [sessionDetailsOpen, setSessionDetailsOpen] = useState(false);
-  const [nricVisibility, setNricVisibility] = useState<Record<string, boolean>>({});
+  const [showAllGeneratedNric, setShowAllGeneratedNric] = useState(false);
+  const [showAllSkippedNric, setShowAllSkippedNric] = useState(false);
 
   const generateSessionId = () => `LS-${Date.now().toString(36).toUpperCase()}`;
   const generateAccountHolderId = (index: number) => `AH${(1000 + index).toString().padStart(4, '0')}`;
@@ -165,9 +166,9 @@ const AccountLifecycleSection: React.FC = () => {
     // Generate skipped records
     for (let i = 0; i < duplicatesFound; i++) {
       skippedRecords.push({
+        accountId: `EA${(2000 + i).toString().padStart(4, '0')}`,
         name: demoNames[(recordsCreated + i) % demoNames.length],
         nric: `S${(9000000 + recordsCreated + i).toString()}${String.fromCharCode(65 + ((recordsCreated + i) % 26))}`,
-        reason: 'Duplicate NRIC - account already exists',
       });
     }
     
@@ -200,17 +201,17 @@ const AccountLifecycleSection: React.FC = () => {
     });
   };
 
-  // Toggle NRIC visibility
-  const toggleNricVisibility = (accountId: string) => {
-    setNricVisibility(prev => ({
-      ...prev,
-      [accountId]: !prev[accountId]
-    }));
+  // Get masked/unmasked NRIC for Generated Accounts
+  const getGeneratedDisplayNric = (nric: string) => {
+    if (showAllGeneratedNric) {
+      return nric;
+    }
+    return `****${nric.slice(-4)}`;
   };
 
-  // Get masked/unmasked NRIC
-  const getDisplayNric = (accountId: string, nric: string) => {
-    if (nricVisibility[accountId]) {
+  // Get masked/unmasked NRIC for Skipped Records
+  const getSkippedDisplayNric = (nric: string) => {
+    if (showAllSkippedNric) {
       return nric;
     }
     return `****${nric.slice(-4)}`;
@@ -219,6 +220,8 @@ const AccountLifecycleSection: React.FC = () => {
   // Open session details
   const handleViewSessionDetails = (session: LifecycleSession) => {
     setSelectedSession(session);
+    setShowAllGeneratedNric(false);
+    setShowAllSkippedNric(false);
     setSessionDetailsOpen(true);
   };
 
@@ -577,8 +580,24 @@ const AccountLifecycleSection: React.FC = () => {
 
               {/* Generated Accounts Table */}
               <div className="border rounded-lg">
-                <div className="px-3 py-2 border-b bg-muted/30">
+                <div className="px-3 py-2 border-b bg-muted/30 flex justify-between items-center">
                   <span className="text-xs font-medium">Generated Accounts ({selectedSession.recordsCreated})</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 text-xs px-2"
+                    onClick={() => setShowAllGeneratedNric(!showAllGeneratedNric)}
+                  >
+                    {showAllGeneratedNric ? (
+                      <>
+                        <Eye className="h-3 w-3 mr-1" /> Hide All NRIC
+                      </>
+                    ) : (
+                      <>
+                        <Eye className="h-3 w-3 mr-1 text-muted-foreground" /> Show All NRIC
+                      </>
+                    )}
+                  </Button>
                 </div>
                 <div className="max-h-[200px] overflow-auto">
                   <Table>
@@ -597,24 +616,8 @@ const AccountLifecycleSection: React.FC = () => {
                               {account.accountHolderId}
                             </TableCell>
                             <TableCell className="py-1.5">{account.name}</TableCell>
-                            <TableCell className="py-1.5">
-                              <div className="flex items-center gap-1">
-                                <span className="font-mono text-muted-foreground">
-                                  {getDisplayNric(account.accountHolderId, account.nric)}
-                                </span>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-5 w-5 p-0"
-                                  onClick={() => toggleNricVisibility(account.accountHolderId)}
-                                >
-                                  {nricVisibility[account.accountHolderId] ? (
-                                    <Eye className="h-3 w-3" />
-                                  ) : (
-                                    <Eye className="h-3 w-3 text-muted-foreground" />
-                                  )}
-                                </Button>
-                              </div>
+                            <TableCell className="py-1.5 font-mono text-muted-foreground">
+                              {getGeneratedDisplayNric(account.nric)}
                             </TableCell>
                           </TableRow>
                         ))
@@ -633,29 +636,43 @@ const AccountLifecycleSection: React.FC = () => {
               {/* Skipped Records Table */}
               {selectedSession.skippedRecords && selectedSession.skippedRecords.length > 0 && (
                 <div className="border rounded-lg border-amber-200 dark:border-amber-900">
-                  <div className="px-3 py-2 border-b bg-amber-50 dark:bg-amber-950/30">
+                  <div className="px-3 py-2 border-b bg-amber-50 dark:bg-amber-950/30 flex justify-between items-center">
                     <span className="text-xs font-medium text-amber-700 dark:text-amber-400">
                       Skipped Records ({selectedSession.recordsSkipped})
                     </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 text-xs px-2"
+                      onClick={() => setShowAllSkippedNric(!showAllSkippedNric)}
+                    >
+                      {showAllSkippedNric ? (
+                        <>
+                          <Eye className="h-3 w-3 mr-1" /> Hide All NRIC
+                        </>
+                      ) : (
+                        <>
+                          <Eye className="h-3 w-3 mr-1 text-muted-foreground" /> Show All NRIC
+                        </>
+                      )}
+                    </Button>
                   </div>
                   <div className="max-h-[150px] overflow-auto">
                     <Table>
                       <TableHeader>
                         <TableRow className="text-[11px]">
+                          <TableHead className="h-8">Account ID</TableHead>
                           <TableHead className="h-8">Name</TableHead>
                           <TableHead className="h-8">NRIC</TableHead>
-                          <TableHead className="h-8">Reason</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {selectedSession.skippedRecords.map((record, index) => (
                           <TableRow key={index} className="text-[11px]">
+                            <TableCell className="py-1.5 font-mono">{record.accountId}</TableCell>
                             <TableCell className="py-1.5">{record.name}</TableCell>
                             <TableCell className="py-1.5 font-mono text-muted-foreground">
-                              ****{record.nric.slice(-4)}
-                            </TableCell>
-                            <TableCell className="py-1.5 text-amber-600 dark:text-amber-400">
-                              {record.reason}
+                              {getSkippedDisplayNric(record.nric)}
                             </TableCell>
                           </TableRow>
                         ))}
