@@ -1,45 +1,26 @@
-import React, { useState } from 'react';
-import { Calendar, Clock, Play, Check, Loader2, CalendarClock, Save, Eye, X, User } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar as CalendarComponent } from '@/components/ui/calendar';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/ui/sheet';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import { cn } from '@/lib/utils';
-import { format } from 'date-fns';
-import { toast } from '@/hooks/use-toast';
+import React, { useState } from "react";
+import { Calendar, Clock, Play, Check, Loader2, CalendarClock, Save, Eye, X, User } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { cn } from "@/lib/utils";
+import { format } from "date-fns";
+import { toast } from "@/hooks/use-toast";
 
 // Session-related types
 interface LifecycleSession {
   id: string;
   timestamp: string;
-  actionType: 'fetch_15yo' | 'activate_16yo' | 'close_30yo';
+  actionType: "fetch_15yo" | "activate_16yo" | "close_30yo";
   targetYear: number;
   recordsCreated: number;
   recordsSkipped: number;
-  status: 'completed' | 'failed';
+  status: "completed" | "failed";
   adminName: string;
   executionTimeMs: number;
   fetchDate?: string;
@@ -62,33 +43,45 @@ interface SkippedRecord {
 
 // Demo names for generated accounts
 const demoNames = [
-  'Ahmad bin Hassan', 'Siti Nurhaliza', 'Tan Wei Ming', 'Priya Devi',
-  'Muhammad Faris', 'Ng Siew Ling', 'Rajesh Kumar', 'Fatimah Zahra',
-  'Lee Jia Wei', 'Nurul Aisyah', 'Wong Mei Hua', 'Arun Sharma',
-  'Lim Boon Huat', 'Khadijah Ibrahim', 'Chen Xiao Ming', 'Kavitha Rajan'
+  "Ahmad bin Hassan",
+  "Siti Nurhaliza",
+  "Tan Wei Ming",
+  "Priya Devi",
+  "Muhammad Faris",
+  "Ng Siew Ling",
+  "Rajesh Kumar",
+  "Fatimah Zahra",
+  "Lee Jia Wei",
+  "Nurul Aisyah",
+  "Wong Mei Hua",
+  "Arun Sharma",
+  "Lim Boon Huat",
+  "Khadijah Ibrahim",
+  "Chen Xiao Ming",
+  "Kavitha Rajan",
 ];
 
 // Simulated existing NRICs for deduplication demo
-const existingNrics = new Set(['S1234567A', 'S2345678B', 'S3456789C']);
+const existingNrics = new Set(["S1234567A", "S2345678B", "S3456789C"]);
 
 const AccountLifecycleSection: React.FC = () => {
   const currentYear = new Date().getFullYear();
   const birthYear15 = currentYear - 15;
   const birthYear16 = currentYear - 16;
   const birthYear30 = currentYear - 30;
-  
+
   // Configuration dates
   const [fetchScheduleDate, setFetchScheduleDate] = useState<Date | undefined>();
   const [activationScheduleDate, setActivationScheduleDate] = useState<Date | undefined>();
   const [closeScheduleDate, setCloseScheduleDate] = useState<Date | undefined>();
-  
+
   // Loading states
   const [simulationLoading, setSimulationLoading] = useState(false);
   const [saveLoading, setSaveLoading] = useState(false);
-  
+
   // Lifecycle sessions (audit log)
   const [lifecycleSessions, setLifecycleSessions] = useState<LifecycleSession[]>([]);
-  
+
   // Session details view
   const [selectedSession, setSelectedSession] = useState<LifecycleSession | null>(null);
   const [sessionDetailsOpen, setSessionDetailsOpen] = useState(false);
@@ -96,40 +89,46 @@ const AccountLifecycleSection: React.FC = () => {
   const [showAllSkippedNric, setShowAllSkippedNric] = useState(false);
 
   const generateSessionId = () => `LS-${Date.now().toString(36).toUpperCase()}`;
-  const generateAccountHolderId = (index: number) => `AH${(1000 + index).toString().padStart(4, '0')}`;
+  const generateAccountHolderId = (index: number) => `AH${(1000 + index).toString().padStart(4, "0")}`;
   const generateNric = (index: number) => {
-    const letters = 'ABCDEFGHIJKLMNPQRSTUVWXYZ';
+    const letters = "ABCDEFGHIJKLMNPQRSTUVWXYZ";
     return `S${(9000000 + index).toString()}${letters[index % letters.length]}`;
   };
 
-  const getActionLabel = (actionType: LifecycleSession['actionType']) => {
+  const getActionLabel = (actionType: LifecycleSession["actionType"]) => {
     switch (actionType) {
-      case 'fetch_15yo': return 'Fetch 15yo Data';
-      case 'activate_16yo': return 'Activate 16yo';
-      case 'close_30yo': return 'Close 30yo';
+      case "fetch_15yo":
+        return "Fetch 15yo Data";
+      case "activate_16yo":
+        return "Activate 16yo";
+      case "close_30yo":
+        return "Close 30yo";
     }
   };
 
-  const getActionBadgeVariant = (actionType: LifecycleSession['actionType']) => {
+  const getActionBadgeVariant = (actionType: LifecycleSession["actionType"]) => {
     switch (actionType) {
-      case 'fetch_15yo': return 'secondary';
-      case 'activate_16yo': return 'outline';
-      case 'close_30yo': return 'destructive';
+      case "fetch_15yo":
+        return "secondary";
+      case "activate_16yo":
+        return "outline";
+      case "close_30yo":
+        return "destructive";
     }
   };
 
   // Save configuration without modal
   const handleSaveConfiguration = async () => {
     setSaveLoading(true);
-    
+
     // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 800));
-    
+    await new Promise((resolve) => setTimeout(resolve, 800));
+
     setSaveLoading(false);
-    
+
     toast({
       title: "Configuration Saved",
-      description: `Fetch: ${fetchScheduleDate ? format(fetchScheduleDate, 'dd MMM yyyy') : 'not set'}, Activation: ${activationScheduleDate ? format(activationScheduleDate, 'dd MMM yyyy') : 'not set'}, Close: ${closeScheduleDate ? format(closeScheduleDate, 'dd MMM yyyy') : 'not set'}.`,
+      description: `Fetch: ${fetchScheduleDate ? format(fetchScheduleDate, "dd MMM yyyy") : "not set"}, Activation: ${activationScheduleDate ? format(activationScheduleDate, "dd MMM yyyy") : "not set"}, Close: ${closeScheduleDate ? format(closeScheduleDate, "dd MMM yyyy") : "not set"}.`,
     });
   };
 
@@ -137,19 +136,19 @@ const AccountLifecycleSection: React.FC = () => {
   const handleRunSimulation = async () => {
     setSimulationLoading(true);
     const startTime = Date.now();
-    
+
     // Simulate API call with fetch logic
-    await new Promise(resolve => setTimeout(resolve, 2500));
-    
+    await new Promise((resolve) => setTimeout(resolve, 2500));
+
     // Generate demo data with deduplication
     const totalCitizensFound = Math.floor(Math.random() * 30) + 15;
     const duplicatesFound = Math.floor(Math.random() * 4) + 1;
     const recordsCreated = totalCitizensFound - duplicatesFound;
-    
+
     // Generate accounts
     const generatedAccounts: GeneratedAccount[] = [];
     const skippedRecords: SkippedRecord[] = [];
-    
+
     for (let i = 0; i < recordsCreated; i++) {
       const nric = generateNric(i + Math.floor(Math.random() * 1000));
       const fullNric = nric;
@@ -162,39 +161,39 @@ const AccountLifecycleSection: React.FC = () => {
         });
       }
     }
-    
+
     // Generate skipped records
     for (let i = 0; i < duplicatesFound; i++) {
       skippedRecords.push({
-        accountId: `EA${(2000 + i).toString().padStart(4, '0')}`,
+        accountId: `EA${(2000 + i).toString().padStart(4, "0")}`,
         name: demoNames[(recordsCreated + i) % demoNames.length],
         nric: `S${(9000000 + recordsCreated + i).toString()}${String.fromCharCode(65 + ((recordsCreated + i) % 26))}`,
       });
     }
-    
+
     const executionTime = Date.now() - startTime;
     const sessionId = generateSessionId();
-    
+
     // Create new session entry
     const newSession: LifecycleSession = {
       id: sessionId,
       timestamp: new Date().toISOString(),
-      actionType: 'fetch_15yo',
+      actionType: "fetch_15yo",
       targetYear: birthYear15,
       recordsCreated: generatedAccounts.length,
       recordsSkipped: duplicatesFound,
-      status: 'completed',
-      adminName: 'John Tan',
+      status: "completed",
+      adminName: "John Tan",
       executionTimeMs: executionTime,
-      fetchDate: fetchScheduleDate ? format(fetchScheduleDate, 'dd MMM') : undefined,
-      activationDate: activationScheduleDate ? format(activationScheduleDate, 'dd MMM') : undefined,
+      fetchDate: fetchScheduleDate ? format(fetchScheduleDate, "dd MMM") : undefined,
+      activationDate: activationScheduleDate ? format(activationScheduleDate, "dd MMM") : undefined,
       generatedAccounts,
       skippedRecords,
     };
-    
-    setLifecycleSessions(prev => [newSession, ...prev]);
+
+    setLifecycleSessions((prev) => [newSession, ...prev]);
     setSimulationLoading(false);
-    
+
     toast({
       title: "Simulation Complete",
       description: `Session ${sessionId}: Created ${generatedAccounts.length} pending accounts. ${duplicatesFound} skipped (duplicates).`,
@@ -235,9 +234,7 @@ const AccountLifecycleSection: React.FC = () => {
             </div>
             <div>
               <CardTitle className="text-lg">Account Lifecycle</CardTitle>
-              <CardDescription className="text-xs">
-                Session-based account lifecycle management
-              </CardDescription>
+              <CardDescription className="text-xs">Session-based account lifecycle management</CardDescription>
             </div>
           </div>
           <Badge variant="outline" className="text-xs">
@@ -246,7 +243,7 @@ const AccountLifecycleSection: React.FC = () => {
           </Badge>
         </div>
       </CardHeader>
-      
+
       <CardContent className="space-y-4">
         {/* Lifecycle Session Setup Card */}
         <Card className="border-2 border-primary/20 bg-primary/5">
@@ -263,29 +260,34 @@ const AccountLifecycleSection: React.FC = () => {
             {/* Helper Text */}
             <div className="bg-muted/50 rounded-lg p-3 border border-muted space-y-1.5">
               <p className="text-xs text-muted-foreground">
-                <span className="font-medium text-foreground">Auto-targeting:</span> System will automatically target citizens based on age thresholds:
+                <span className="font-medium text-foreground">Auto-targeting:</span> System will automatically target
+                citizens based on age thresholds:
               </p>
               <div className="flex flex-wrap gap-2">
-                <Badge variant="secondary" className="text-[10px]">Fetch 15yo: {birthYear15}</Badge>
-                <Badge variant="outline" className="text-[10px]">Activate 16yo: {birthYear16}</Badge>
-                <Badge variant="destructive" className="text-[10px]">Close 30yo: {birthYear30}</Badge>
+                <Badge variant="secondary" className="text-[10px]">
+                  Fetch 15yo: {birthYear15}
+                </Badge>
+                <Badge variant="outline" className="text-[10px]">
+                  Activate 16yo: {birthYear16}
+                </Badge>
+                <Badge variant="destructive" className="text-[10px]">
+                  Close 30yo: {birthYear30}
+                </Badge>
               </div>
             </div>
-            
+
             {/* Date Pickers Row */}
             <div className="grid gap-4 sm:grid-cols-3">
               {/* Fetch Schedule Date - Day/Month only */}
               <div className="space-y-2">
-                <label className="text-xs font-medium text-muted-foreground">
-                  Fetch Schedule (Day/Month)
-                </label>
+                <label className="text-xs font-medium text-muted-foreground">Fetch Schedule</label>
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
                       className={cn(
                         "w-full justify-start text-left h-9 text-sm",
-                        !fetchScheduleDate && "text-muted-foreground"
+                        !fetchScheduleDate && "text-muted-foreground",
                       )}
                     >
                       <Calendar className="mr-2 h-4 w-4" />
@@ -303,19 +305,17 @@ const AccountLifecycleSection: React.FC = () => {
                   </PopoverContent>
                 </Popover>
               </div>
-              
+
               {/* Activation Schedule Date - Day/Month only */}
               <div className="space-y-2">
-                <label className="text-xs font-medium text-muted-foreground">
-                  Activation Schedule (Day/Month)
-                </label>
+                <label className="text-xs font-medium text-muted-foreground">Activation Schedule</label>
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
                       className={cn(
                         "w-full justify-start text-left h-9 text-sm",
-                        !activationScheduleDate && "text-muted-foreground"
+                        !activationScheduleDate && "text-muted-foreground",
                       )}
                     >
                       <Calendar className="mr-2 h-4 w-4" />
@@ -333,19 +333,17 @@ const AccountLifecycleSection: React.FC = () => {
                   </PopoverContent>
                 </Popover>
               </div>
-              
+
               {/* Close Schedule Date - Day/Month only */}
               <div className="space-y-2">
-                <label className="text-xs font-medium text-muted-foreground">
-                  Close Schedule (Day/Month)
-                </label>
+                <label className="text-xs font-medium text-muted-foreground">Close Schedule</label>
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
                       className={cn(
                         "w-full justify-start text-left h-9 text-sm",
-                        !closeScheduleDate && "text-muted-foreground"
+                        !closeScheduleDate && "text-muted-foreground",
                       )}
                     >
                       <Calendar className="mr-2 h-4 w-4" />
@@ -364,15 +362,10 @@ const AccountLifecycleSection: React.FC = () => {
                 </Popover>
               </div>
             </div>
-            
+
             {/* Action Buttons */}
             <div className="flex flex-col sm:flex-row gap-2 pt-2">
-              <Button 
-                onClick={handleSaveConfiguration}
-                disabled={saveLoading}
-                className="flex-1"
-                size="sm"
-              >
+              <Button onClick={handleSaveConfiguration} disabled={saveLoading} className="flex-1" size="sm">
                 {saveLoading ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -385,8 +378,8 @@ const AccountLifecycleSection: React.FC = () => {
                   </>
                 )}
               </Button>
-              
-              <Button 
+
+              <Button
                 onClick={handleRunSimulation}
                 disabled={simulationLoading}
                 variant="secondary"
@@ -438,13 +431,13 @@ const AccountLifecycleSection: React.FC = () => {
               <TableBody>
                 {lifecycleSessions.length > 0 ? (
                   lifecycleSessions.map((session) => (
-                    <TableRow 
-                      key={session.id} 
+                    <TableRow
+                      key={session.id}
                       className="text-xs cursor-pointer hover:bg-muted/50 transition-colors"
                       onClick={() => handleViewSessionDetails(session)}
                     >
                       <TableCell className="py-2 font-mono text-[11px]">
-                        {format(new Date(session.timestamp), 'dd/MM/yy HH:mm')}
+                        {format(new Date(session.timestamp), "dd/MM/yy HH:mm")}
                       </TableCell>
                       <TableCell className="py-2">
                         <Badge variant={getActionBadgeVariant(session.actionType) as any} className="text-[10px]">
@@ -459,20 +452,17 @@ const AccountLifecycleSection: React.FC = () => {
                         {session.recordsSkipped}
                       </TableCell>
                       <TableCell className="py-2">
-                        <Badge 
-                          variant={session.status === 'completed' ? 'default' : 'destructive'} 
-                          className={cn(
-                            "text-[10px]",
-                            session.status === 'completed' && "bg-green-600"
-                          )}
+                        <Badge
+                          variant={session.status === "completed" ? "default" : "destructive"}
+                          className={cn("text-[10px]", session.status === "completed" && "bg-green-600")}
                         >
-                          {session.status === 'completed' ? 'Done' : 'Failed'}
+                          {session.status === "completed" ? "Done" : "Failed"}
                         </Badge>
                       </TableCell>
                       <TableCell className="py-2 text-right">
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           className="h-6 w-6 p-0"
                           onClick={(e) => {
                             e.stopPropagation();
@@ -505,25 +495,27 @@ const AccountLifecycleSection: React.FC = () => {
               <Clock className="h-4 w-4" />
               Session Details
             </SheetTitle>
-            <SheetDescription className="text-xs">
-              Detailed information about this lifecycle session
-            </SheetDescription>
+            <SheetDescription className="text-xs">Detailed information about this lifecycle session</SheetDescription>
           </SheetHeader>
-          
+
           {selectedSession && (
             <div className="space-y-4">
               {/* Session Header Info */}
               <div className="bg-muted rounded-lg p-4 space-y-3">
                 <div className="flex justify-between items-center">
                   <span className="text-xs text-muted-foreground">Session ID</span>
-                  <Badge variant="outline" className="font-mono text-xs">{selectedSession.id}</Badge>
+                  <Badge variant="outline" className="font-mono text-xs">
+                    {selectedSession.id}
+                  </Badge>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-xs text-muted-foreground">Admin</span>
                   <div className="flex items-center gap-1.5">
                     <User className="h-3 w-3 text-muted-foreground" />
                     <span className="text-sm font-medium">{selectedSession.adminName}</span>
-                    <Badge variant="secondary" className="text-[10px]">Admin</Badge>
+                    <Badge variant="secondary" className="text-[10px]">
+                      Admin
+                    </Badge>
                   </div>
                 </div>
               </div>
@@ -541,26 +533,19 @@ const AccountLifecycleSection: React.FC = () => {
                   </div>
                   <div className="flex justify-between items-center py-1.5 border-b">
                     <span className="text-muted-foreground">Fetch Date</span>
-                    <span className="font-medium">
-                      {selectedSession.fetchDate || 'Not scheduled'}
-                    </span>
+                    <span className="font-medium">{selectedSession.fetchDate || "Not scheduled"}</span>
                   </div>
                   <div className="flex justify-between items-center py-1.5 border-b">
                     <span className="text-muted-foreground">Activation Date</span>
-                    <span className="font-medium">
-                      {selectedSession.activationDate || 'Not scheduled'}
-                    </span>
+                    <span className="font-medium">{selectedSession.activationDate || "Not scheduled"}</span>
                   </div>
                   <div className="flex justify-between items-center py-1.5">
                     <span className="text-muted-foreground">Status</span>
-                    <Badge 
-                      variant={selectedSession.status === 'completed' ? 'default' : 'destructive'}
-                      className={cn(
-                        "text-[10px]",
-                        selectedSession.status === 'completed' && "bg-green-600"
-                      )}
+                    <Badge
+                      variant={selectedSession.status === "completed" ? "default" : "destructive"}
+                      className={cn("text-[10px]", selectedSession.status === "completed" && "bg-green-600")}
                     >
-                      {selectedSession.status === 'completed' ? 'Completed' : 'Failed'}
+                      {selectedSession.status === "completed" ? "Completed" : "Failed"}
                     </Badge>
                   </div>
                 </div>
@@ -612,9 +597,7 @@ const AccountLifecycleSection: React.FC = () => {
                       {selectedSession.generatedAccounts.length > 0 ? (
                         selectedSession.generatedAccounts.map((account, index) => (
                           <TableRow key={index} className="text-[11px]">
-                            <TableCell className="py-1.5 font-mono">
-                              {account.accountHolderId}
-                            </TableCell>
+                            <TableCell className="py-1.5 font-mono">{account.accountHolderId}</TableCell>
                             <TableCell className="py-1.5">{account.name}</TableCell>
                             <TableCell className="py-1.5 font-mono text-muted-foreground">
                               {getGeneratedDisplayNric(account.nric)}
@@ -685,8 +668,8 @@ const AccountLifecycleSection: React.FC = () => {
               {/* Validation Note */}
               <div className="bg-blue-50 dark:bg-blue-950/30 rounded-lg p-3 border border-blue-200 dark:border-blue-900">
                 <p className="text-[11px] text-blue-700 dark:text-blue-400">
-                  <strong>Validation:</strong> Duplicate NRICs were automatically skipped. 
-                  Manually created accounts with pre-set activation dates were not overwritten.
+                  <strong>Validation:</strong> Duplicate NRICs were automatically skipped. Manually created accounts
+                  with pre-set activation dates were not overwritten.
                 </p>
               </div>
             </div>
