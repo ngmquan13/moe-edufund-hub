@@ -181,20 +181,25 @@ const CheckoutPage: React.FC = () => {
           cardPayment = remainingAfterBalance;
         }
 
-        // Build course items with course codes for transaction details
+        // Build course items with course codes and cycle info for transaction details
         const courseItems = selectedCharges.map(c => {
           const course = getCourse(c.courseId);
           return {
             courseId: c.courseId,
             courseCode: course?.code || c.courseName,
             courseName: c.courseName,
-            amount: c.amount
+            amount: c.amount,
+            period: c.period // Include cycle/period info
           };
         });
 
-        // Build description using course codes: "Course Fee - CODE1" or "Course Fee - CODE1, CODE2"
-        const courseCodes = courseItems.map(c => c.courseCode);
-        const description = `Course Fee - ${courseCodes.join(', ')}`;
+        // Build description using course codes with cycle info
+        // Format: "Course Fee - CODE1 (Cycle 1)" or "Course Fee - CODE1 (Cycle 1), CODE2 (Cycle 2)"
+        const courseDescriptions = courseItems.map(c => {
+          const cycleInfo = c.period ? ` (${c.period})` : '';
+          return `${c.courseCode}${cycleInfo}`;
+        });
+        const description = `Course Fee - ${courseDescriptions.join(', ')}`;
 
         // Build payment breakdown for combined payments
         const paymentBreakdown: PaymentMethodBreakdown[] = [];

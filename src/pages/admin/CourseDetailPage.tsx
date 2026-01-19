@@ -461,7 +461,12 @@ const CourseDetailPage: React.FC = () => {
         <Button variant="outline" onClick={handleOpenEditDialog}>
           <Edit className="h-4 w-4 mr-2" /> Edit Course
         </Button>
-        <Button className="bg-blue-600 hover:bg-blue-700" onClick={handleOpenAddStudents}>
+        <Button 
+          className="bg-blue-600 hover:bg-blue-700" 
+          onClick={handleOpenAddStudents}
+          disabled={course.endDate ? new Date(course.endDate) < new Date() : false}
+          title={course.endDate && new Date(course.endDate) < new Date() ? 'Cannot add students to a course that has ended' : undefined}
+        >
           <UserPlus className="h-4 w-4 mr-2" /> Add Students
         </Button>
       </div>

@@ -98,7 +98,7 @@ const CitizenCourseDetailPage: React.FC = () => {
       
       return [{
         id: 'one-time-payment',
-        period: 'Course Fee',
+        period: `${course.name} - One-time Payment`,
         amount: course.monthlyFee,
         dueDate,
         status: 'pending' as const,
