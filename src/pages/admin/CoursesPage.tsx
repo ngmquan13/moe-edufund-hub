@@ -822,7 +822,12 @@ const CoursesPage: React.FC = () => {
                   </div>
                   <span className="text-lg font-bold text-primary">
                     {formatCurrency(course.monthlyFee)}
-                    {course.paymentType === 'recurring' && '/mo'}
+                    {course.paymentType === 'recurring' && course.billingCycle && (
+                      course.billingCycle === 'monthly' ? '/mo' :
+                      course.billingCycle === 'quarterly' ? '/qtr' :
+                      course.billingCycle === 'bi_annually' ? '/6mo' :
+                      course.billingCycle === 'annually' ? '/yr' : ''
+                    )}
                   </span>
                 </div>
               </CardContent>
