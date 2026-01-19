@@ -85,17 +85,20 @@ const TransactionsPage: React.FC = () => {
       return `Course Fee - ${courseCodes.join(', ')}`;
     }
     
+    // Use external description for citizen-facing view (fallback to internal description)
+    const displayDescription = txn.externalDescription || txn.description;
+    
     // Use description if it already follows the format
-    if (txn.description.startsWith('Course Fee -')) {
-      return txn.description;
+    if (displayDescription.startsWith('Course Fee -')) {
+      return displayDescription;
     }
     
-    // For top-ups
+    // For top-ups, show the external description if available
     if (txn.type === 'top_up') {
-      return 'Account Top-up';
+      return txn.externalDescription || 'Account Top-up';
     }
     
-    return txn.description;
+    return displayDescription;
   };
 
   const getPaymentMethodBadge = (txn: Transaction) => {
@@ -304,7 +307,7 @@ const TransactionsPage: React.FC = () => {
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Description</span>
                   <span className="font-medium text-right max-w-[200px]">
-                    {getTransactionTitle(selectedTransaction)}
+                    {selectedTransaction.externalDescription || getTransactionTitle(selectedTransaction)}
                   </span>
                 </div>
                 <div className="flex justify-between">
