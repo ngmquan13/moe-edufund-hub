@@ -157,22 +157,26 @@ const CoursesPage: React.FC = () => {
     navigate(`/portal/courses/${courseId}`);
   };
 
-  // Get payment status for a course enrollment
-  const getCoursePaymentStatus = (courseId: string): 'paid' | 'ongoing' | 'pending' | 'overdue' => {
+  // Get payment status for a course enrollment - only 3 statuses: paid, pending, ongoing
+  const getCoursePaymentStatus = (courseId: string): 'paid' | 'ongoing' | 'pending' => {
     const courseCharges = outstandingCharges.filter(c => c.courseId === courseId);
-    const unpaidCharges = courseCharges.filter(c => c.status === 'unpaid' || c.status === 'overdue');
+    const unpaidCharges = courseCharges.filter(c => c.status === 'unpaid');
+    const paidCharges = courseCharges.filter(c => c.status === 'paid');
     
     if (unpaidCharges.length === 0) {
-      // No pending charges - consider as ongoing (paid for current cycle)
-      return 'ongoing';
+      // No pending charges
+      if (paidCharges.length > 0) {
+        // Has paid charges - ongoing (paid for current cycle)
+        return 'ongoing';
+      }
+      // All payments complete
+      return 'paid';
     }
-    if (unpaidCharges.some(c => c.status === 'overdue')) {
-      return 'overdue';
-    }
+    // Has unpaid charges - pending
     return 'pending';
   };
 
-  const getPaymentStatusBadge = (status: 'paid' | 'ongoing' | 'pending' | 'overdue') => {
+  const getPaymentStatusBadge = (status: 'paid' | 'ongoing' | 'pending') => {
     switch (status) {
       case 'paid':
         return <Badge variant="success">Paid</Badge>;
@@ -180,8 +184,6 @@ const CoursesPage: React.FC = () => {
         return <Badge className="bg-blue-500 hover:bg-blue-600 text-white">Ongoing</Badge>;
       case 'pending':
         return <Badge variant="warning">Pending</Badge>;
-      case 'overdue':
-        return <Badge variant="destructive">Overdue</Badge>;
     }
   };
 
@@ -285,7 +287,7 @@ const CoursesPage: React.FC = () => {
                           </div>
                           <div>
                             <h3 className="font-semibold text-foreground">
-                              [{course.code}] - {course.name}
+                              {course.name}
                             </h3>
                             <p className="text-sm text-muted-foreground">{course.provider}</p>
                             <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
@@ -381,14 +383,12 @@ const CoursesPage: React.FC = () => {
                               />
                             </TableCell>
                             <TableCell className="font-medium">
-                              {course ? `[${course.code}] - ${course.name}` : charge.courseName}
+                              {course?.name || charge.courseName}
                             </TableCell>
                             <TableCell>{charge.period}</TableCell>
                             <TableCell>{formatDate(charge.dueDate)}</TableCell>
                             <TableCell>
-                              <Badge variant={charge.status === 'overdue' ? 'destructive' : 'warning'}>
-                                {charge.status === 'overdue' ? 'Overdue' : 'Pending'}
-                              </Badge>
+                              <Badge variant="warning">Pending</Badge>
                             </TableCell>
                             <TableCell className="text-right font-semibold">
                               {formatCurrency(charge.amount)}
