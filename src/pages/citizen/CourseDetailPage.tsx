@@ -81,6 +81,8 @@ const CitizenCourseDetailPage: React.FC = () => {
   }, [course, courseCharges]);
 
   // Generate payment cycles for recurring courses - only cycles from enrollment date onwards, excluding paid ones
+  // Key logic: Student must pay cycles sequentially - only the FIRST unpaid cycle is "pending" (payable),
+  // all subsequent cycles are "ongoing" (not yet payable until previous cycle is paid)
   const upcomingPaymentCycles = useMemo(() => {
     if (!course || !enrolment || course.paymentType !== 'recurring' || !course.billingCycle) {
       return [];
@@ -90,20 +92,21 @@ const CitizenCourseDetailPage: React.FC = () => {
     const enrollmentDate = new Date(enrolment.startDate);
     const courseEndDate = course.endDate ? new Date(course.endDate) : null;
     const paymentDeadlineDays = course.paymentDeadlineDays || 5;
-    const today = new Date();
 
-    const cycles: Array<{
+    const unpaidCycles: Array<{
       id: string;
       period: string;
       amount: number;
       dueDate: Date;
       status: 'pending' | 'ongoing';
       charge?: OutstandingCharge;
+      cycleNumber: number;
     }> = [];
 
     // Calculate cycles starting from enrollment date
     let cycleIndex = 0;
     let cycleStart = new Date(enrollmentDate);
+    let displayCycleNumber = 1; // For display purposes, relative to student's enrollment
     
     while (true) {
       // Stop if we've passed the course end date
@@ -122,39 +125,39 @@ const CitizenCourseDetailPage: React.FC = () => {
         cycleStart = new Date(cycleStart);
         cycleStart.setMonth(cycleStart.getMonth() + cycleMonths);
         cycleIndex++;
+        displayCycleNumber++;
         continue;
       }
       
-      // Determine status - only 'pending' or 'ongoing'
-      let status: 'pending' | 'ongoing' = 'ongoing';
-      
-      if (charge && charge.status === 'unpaid') {
-        // Has an unpaid charge - it's pending payment
-        status = 'pending';
-      } else if (today >= cycleStart && today <= dueDate) {
-        // Within payment window
-        status = 'pending';
-      }
-
-      cycles.push({
-        id: `cycle-${cycleIndex + 1}`,
-        period: `Cycle ${cycleIndex + 1} - ${period}`,
+      // Add to unpaid cycles list
+      unpaidCycles.push({
+        id: `cycle-${displayCycleNumber}`,
+        period: `Cycle ${displayCycleNumber} - ${period}`,
         amount: course.monthlyFee,
         dueDate,
-        status,
+        status: 'ongoing', // Will be updated below
         charge,
+        cycleNumber: displayCycleNumber,
       });
 
       // Move to next cycle
       cycleStart = new Date(cycleStart);
       cycleStart.setMonth(cycleStart.getMonth() + cycleMonths);
       cycleIndex++;
+      displayCycleNumber++;
       
       // Safety limit
       if (cycleIndex > 24) break;
     }
 
-    return cycles;
+    // Key logic: Only the FIRST unpaid cycle is "pending" (payable)
+    // All other cycles are "ongoing" (student must pay sequentially)
+    if (unpaidCycles.length > 0) {
+      unpaidCycles[0].status = 'pending';
+      // Rest remain 'ongoing' (already set as default)
+    }
+
+    return unpaidCycles;
   }, [course, enrolment, courseCharges]);
 
   // Determine current payment status for the course - only 3 statuses: paid, pending, ongoing
