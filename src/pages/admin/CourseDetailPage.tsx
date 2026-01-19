@@ -51,7 +51,8 @@ import {
   removeEnrolment,
   getTransactions,
   getEducationAccounts,
-  getOutstandingCharges
+  getOutstandingCharges,
+  addOutstandingCharge
 } from '@/lib/dataStore';
 import { formatCurrency, PaymentType, BillingCycle } from '@/lib/data';
 import { ProviderCombobox } from '@/components/ui/provider-combobox';
@@ -260,6 +261,8 @@ const CourseDetailPage: React.FC = () => {
 
     let addedCount = 0;
     let skippedCount = 0;
+    const today = new Date();
+    
     selectedStudentIds.forEach(holderId => {
       const existingEnrolments = getEnrolmentsByCourse(course.id);
       const existing = existingEnrolments.find(e => e.holderId === holderId && e.isActive);
@@ -271,15 +274,51 @@ const CourseDetailPage: React.FC = () => {
         return;
       }
 
-      if (!existing) {
+      if (!existing && holderAccount) {
+        const enrollmentDate = today.toISOString().split('T')[0];
+        
+        // Add enrollment
         addEnrolment({
           id: `ENR${String(Date.now()).slice(-6)}${holderId}`,
           holderId: holderId,
           courseId: course.id,
-          startDate: new Date().toISOString().split('T')[0],
+          startDate: enrollmentDate,
           endDate: null,
           isActive: true,
         });
+        
+        // Create outstanding charge for first cycle payment
+        const dueDate = new Date(today);
+        dueDate.setDate(dueDate.getDate() + (course.paymentDeadlineDays || 5));
+        
+        // Determine period label based on payment type
+        let periodLabel = 'Cycle 1';
+        if (course.paymentType === 'recurring' && course.billingCycle) {
+          const monthName = today.toLocaleDateString('en-GB', { month: 'short', year: 'numeric' });
+          if (course.billingCycle === 'monthly') {
+            periodLabel = `Cycle 1 - ${monthName}`;
+          } else if (course.billingCycle === 'quarterly') {
+            periodLabel = `Cycle 1 - Q${Math.ceil((today.getMonth() + 1) / 3)} ${today.getFullYear()}`;
+          } else if (course.billingCycle === 'bi_annually') {
+            periodLabel = `Cycle 1 - H${today.getMonth() < 6 ? 1 : 2} ${today.getFullYear()}`;
+          } else if (course.billingCycle === 'annually') {
+            periodLabel = `Cycle 1 - ${today.getFullYear()}`;
+          }
+        } else if (course.paymentType === 'one_time') {
+          periodLabel = 'One-time Payment';
+        }
+        
+        addOutstandingCharge({
+          id: `CHG${String(Date.now()).slice(-6)}${holderId}`,
+          accountId: holderAccount.id,
+          courseId: course.id,
+          courseName: course.name,
+          period: periodLabel,
+          amount: course.monthlyFee,
+          dueDate: dueDate.toISOString().split('T')[0],
+          status: 'unpaid',
+        });
+        
         addedCount++;
       }
     });
@@ -287,7 +326,7 @@ const CourseDetailPage: React.FC = () => {
     if (addedCount > 0) {
       toast({
         title: "Students Enrolled",
-        description: `${addedCount} student(s) enrolled in ${course.name}.${skippedCount > 0 ? ` ${skippedCount} skipped (non-active accounts).` : ''}`,
+        description: `${addedCount} student(s) enrolled in ${course.name}. Payment is pending.${skippedCount > 0 ? ` ${skippedCount} skipped (non-active accounts).` : ''}`,
       });
     } else if (skippedCount > 0) {
       toast({

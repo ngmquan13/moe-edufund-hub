@@ -195,64 +195,56 @@ export const educationAccounts: EducationAccount[] = [
   { id: 'EA012', holderId: 'AH012', balance: 50.00, status: 'suspended', openedAt: '2021-07-18', suspendedAt: '2023-08-15', closedAt: null, lastTopUpDate: '2023-06-01' },
 ];
 
-// Demo Courses with payment types
+// Demo Courses with payment types - Updated to 2025/2026
 export const courses: Course[] = [
-  { id: 'CRS001', code: 'IT101', name: 'Introduction to Programming', provider: 'Singapore Polytechnic', monthlyFee: 150.00, description: 'Basic programming concepts and Python', isActive: true, paymentType: 'recurring', billingCycle: 'monthly', durationMonths: 6, startDate: '2024-01-01', endDate: '2024-06-30' },
-  { id: 'CRS002', code: 'BUS201', name: 'Business Management', provider: 'Ngee Ann Polytechnic', monthlyFee: 200.00, description: 'Fundamentals of business operations', isActive: true, paymentType: 'recurring', billingCycle: 'quarterly', durationMonths: 12, startDate: '2024-01-01', endDate: '2024-12-31' },
-  { id: 'CRS003', code: 'ENG102', name: 'English Communication', provider: 'Republic Polytechnic', monthlyFee: 50.00, description: 'Professional English writing and speaking', isActive: true, paymentType: 'recurring', billingCycle: 'monthly', durationMonths: 3, startDate: '2024-01-01', endDate: '2024-03-31' },
-  { id: 'CRS004', code: 'ACC301', name: 'Financial Accounting', provider: 'Temasek Polytechnic', monthlyFee: 180.00, description: 'Accounting principles and practices', isActive: true, paymentType: 'recurring', billingCycle: 'bi_annually', durationMonths: 12, startDate: '2024-01-01', endDate: '2024-12-31' },
-  { id: 'CRS005', code: 'DES101', name: 'Graphic Design Basics', provider: 'LASALLE College of the Arts', monthlyFee: 175.00, description: 'Introduction to visual design', isActive: true, paymentType: 'one_time', durationMonths: 3, startDate: '2024-07-01', endDate: '2024-09-30' },
-  { id: 'CRS006', code: 'MKT201', name: 'Digital Marketing', provider: 'Singapore Polytechnic', monthlyFee: 160.00, description: 'Online marketing strategies', isActive: true, paymentType: 'recurring', billingCycle: 'monthly', durationMonths: 4, startDate: '2024-05-01', endDate: '2024-08-31' },
-  { id: 'CRS007', code: 'DATA101', name: 'Data Analytics', provider: 'Nanyang Polytechnic', monthlyFee: 220.00, description: 'Data analysis and visualization', isActive: true, paymentType: 'recurring', billingCycle: 'monthly', durationMonths: 6, startDate: '2024-10-01', endDate: '2025-03-31' },
-  { id: 'CRS008', code: 'WEB201', name: 'Web Development', provider: 'Institute of Technical Education', monthlyFee: 190.00, description: 'Modern web technologies', isActive: false, paymentType: 'recurring', billingCycle: 'annually', durationMonths: 12, startDate: '2024-01-01', endDate: '2024-12-31' },
+  { id: 'CRS001', code: 'IT101', name: 'Introduction to Programming', provider: 'Singapore Polytechnic', monthlyFee: 150.00, description: 'Basic programming concepts and Python', isActive: true, paymentType: 'recurring', billingCycle: 'monthly', durationMonths: 6, startDate: '2025-01-01', endDate: '2025-06-30', paymentDeadlineDays: 5 },
+  { id: 'CRS002', code: 'BUS201', name: 'Business Management', provider: 'Ngee Ann Polytechnic', monthlyFee: 200.00, description: 'Fundamentals of business operations', isActive: true, paymentType: 'recurring', billingCycle: 'quarterly', durationMonths: 12, startDate: '2025-01-01', endDate: '2025-12-31', paymentDeadlineDays: 5 },
+  { id: 'CRS003', code: 'ENG102', name: 'English Communication', provider: 'Republic Polytechnic', monthlyFee: 50.00, description: 'Professional English writing and speaking', isActive: true, paymentType: 'recurring', billingCycle: 'monthly', durationMonths: 3, startDate: '2025-01-01', endDate: '2025-03-31', paymentDeadlineDays: 5 },
+  { id: 'CRS004', code: 'ACC301', name: 'Financial Accounting', provider: 'Temasek Polytechnic', monthlyFee: 180.00, description: 'Accounting principles and practices', isActive: true, paymentType: 'recurring', billingCycle: 'bi_annually', durationMonths: 12, startDate: '2025-01-01', endDate: '2025-12-31', paymentDeadlineDays: 5 },
+  { id: 'CRS005', code: 'DES101', name: 'Graphic Design Basics', provider: 'LASALLE College of the Arts', monthlyFee: 175.00, description: 'Introduction to visual design', isActive: true, paymentType: 'one_time', durationMonths: 3, startDate: '2025-07-01', endDate: '2025-09-30', paymentDeadlineDays: 5 },
+  { id: 'CRS006', code: 'MKT201', name: 'Digital Marketing', provider: 'Singapore Polytechnic', monthlyFee: 160.00, description: 'Online marketing strategies', isActive: true, paymentType: 'recurring', billingCycle: 'monthly', durationMonths: 4, startDate: '2025-05-01', endDate: '2025-08-31', paymentDeadlineDays: 5 },
+  { id: 'CRS007', code: 'DATA101', name: 'Data Analytics', provider: 'Nanyang Polytechnic', monthlyFee: 220.00, description: 'Data analysis and visualization', isActive: true, paymentType: 'recurring', billingCycle: 'monthly', durationMonths: 6, startDate: '2025-01-01', endDate: '2025-06-30', paymentDeadlineDays: 5 },
+  { id: 'CRS008', code: 'WEB201', name: 'Web Development', provider: 'Institute of Technical Education', monthlyFee: 190.00, description: 'Modern web technologies', isActive: false, paymentType: 'recurring', billingCycle: 'annually', durationMonths: 12, startDate: '2025-01-01', endDate: '2025-12-31', paymentDeadlineDays: 5 },
 ];
 
-// Demo Enrolments - AH001 has more courses to demonstrate payment scenarios
+// Demo Enrolments - Updated to 2025
 export const enrolments: Enrolment[] = [
-  { id: 'ENR001', holderId: 'AH001', courseId: 'CRS001', startDate: '2024-01-01', endDate: null, isActive: true },
-  { id: 'ENR002', holderId: 'AH001', courseId: 'CRS003', startDate: '2024-01-01', endDate: null, isActive: true },
-  { id: 'ENR009', holderId: 'AH001', courseId: 'CRS007', startDate: '2024-10-01', endDate: null, isActive: true },
-  { id: 'ENR010', holderId: 'AH001', courseId: 'CRS002', startDate: '2024-06-01', endDate: null, isActive: true },
-  { id: 'ENR003', holderId: 'AH003', courseId: 'CRS001', startDate: '2024-02-01', endDate: null, isActive: true },
-  { id: 'ENR004', holderId: 'AH004', courseId: 'CRS002', startDate: '2023-09-01', endDate: null, isActive: true },
-  { id: 'ENR005', holderId: 'AH006', courseId: 'CRS005', startDate: '2024-07-01', endDate: null, isActive: true },
-  { id: 'ENR006', holderId: 'AH008', courseId: 'CRS007', startDate: '2024-03-01', endDate: null, isActive: true },
-  { id: 'ENR007', holderId: 'AH011', courseId: 'CRS006', startDate: '2024-05-01', endDate: null, isActive: true },
-  { id: 'ENR008', holderId: 'AH002', courseId: 'CRS004', startDate: '2023-01-01', endDate: '2024-06-30', isActive: false },
+  { id: 'ENR001', holderId: 'AH001', courseId: 'CRS001', startDate: '2025-01-01', endDate: null, isActive: true },
+  { id: 'ENR002', holderId: 'AH001', courseId: 'CRS003', startDate: '2025-01-01', endDate: null, isActive: true },
+  { id: 'ENR009', holderId: 'AH001', courseId: 'CRS007', startDate: '2025-01-01', endDate: null, isActive: true },
+  { id: 'ENR010', holderId: 'AH001', courseId: 'CRS002', startDate: '2025-01-01', endDate: null, isActive: true },
+  { id: 'ENR003', holderId: 'AH003', courseId: 'CRS001', startDate: '2025-01-15', endDate: null, isActive: true },
+  { id: 'ENR004', holderId: 'AH004', courseId: 'CRS002', startDate: '2025-01-01', endDate: null, isActive: true },
+  { id: 'ENR005', holderId: 'AH006', courseId: 'CRS005', startDate: '2025-07-01', endDate: null, isActive: true },
+  { id: 'ENR006', holderId: 'AH008', courseId: 'CRS007', startDate: '2025-01-10', endDate: null, isActive: true },
+  { id: 'ENR007', holderId: 'AH011', courseId: 'CRS006', startDate: '2025-05-01', endDate: null, isActive: true },
+  { id: 'ENR008', holderId: 'AH002', courseId: 'CRS004', startDate: '2024-01-01', endDate: '2024-12-31', isActive: false },
 ];
 
-// Demo Transactions
+// Demo Transactions - Updated to 2025
 export const transactions: Transaction[] = [
-  { id: 'TXN001', accountId: 'EA001', type: 'top_up', amount: 500.00, balanceAfter: 1500.00, description: 'Annual Education Subsidy', reference: 'AES-2024-001', status: 'completed', createdAt: '2024-12-01T09:30:00' },
-  { id: 'TXN002', accountId: 'EA001', type: 'charge', amount: -150.00, balanceAfter: 1350.00, description: 'Course Fee - IT101', reference: 'FEE-2024-DEC-001', status: 'completed', createdAt: '2024-12-05T14:00:00', courseId: 'CRS001', period: 'Dec 2024' },
-  { id: 'TXN003', accountId: 'EA001', type: 'charge', amount: -100.00, balanceAfter: 1250.00, description: 'Course Fee - ENG102', reference: 'FEE-2024-DEC-002', status: 'completed', createdAt: '2024-12-05T14:01:00', courseId: 'CRS003', period: 'Dec 2024' },
-  { id: 'TXN004', accountId: 'EA003', type: 'top_up', amount: 2000.00, balanceAfter: 2000.00, description: 'Initial Account Funding', reference: 'INIT-2024-003', status: 'completed', createdAt: '2024-12-20T10:00:00' },
-  { id: 'TXN005', accountId: 'EA006', type: 'top_up', amount: 1000.00, balanceAfter: 1500.00, description: 'Youth Education Grant', reference: 'YEG-2024-006', status: 'completed', createdAt: '2024-12-15T11:30:00' },
-  { id: 'TXN006', accountId: 'EA002', type: 'charge', amount: -180.00, balanceAfter: 450.50, description: 'Course Fee - ACC301', reference: 'FEE-2024-NOV-004', status: 'completed', createdAt: '2024-11-05T14:00:00', courseId: 'CRS004', period: 'Nov 2024' },
-  { id: 'TXN007', accountId: 'EA008', type: 'top_up', amount: 500.00, balanceAfter: 1100.00, description: 'Quarterly Top-up', reference: 'QTR-2024-Q4-008', status: 'completed', createdAt: '2024-11-30T16:00:00' },
-  { id: 'TXN008', accountId: 'EA004', type: 'payment', amount: 200.00, balanceAfter: 875.25, description: 'Online Payment', reference: 'PAY-2024-004', status: 'completed', createdAt: '2024-10-15T12:00:00' },
-  { id: 'TXN009', accountId: 'EA011', type: 'charge', amount: -160.00, balanceAfter: 650.00, description: 'Course Fee - MKT201', reference: 'FEE-2024-NOV-011', status: 'completed', createdAt: '2024-11-05T14:00:00', courseId: 'CRS006', period: 'Nov 2024' },
-  { id: 'TXN010', accountId: 'EA007', type: 'top_up', amount: 200.00, balanceAfter: 520.00, description: 'Manual Top-up', reference: 'MAN-2024-007', status: 'failed', createdAt: '2024-08-01T09:00:00' },
+  { id: 'TXN001', accountId: 'EA001', type: 'top_up', amount: 500.00, balanceAfter: 600.00, description: 'Annual Education Subsidy', externalDescription: 'Annual Education Subsidy 2025', reference: 'AES-2025-001', status: 'completed', createdAt: '2025-01-05T09:30:00' },
+  { id: 'TXN004', accountId: 'EA003', type: 'top_up', amount: 2000.00, balanceAfter: 2000.00, description: 'Initial Account Funding', externalDescription: 'Welcome Bonus', reference: 'INIT-2025-003', status: 'completed', createdAt: '2025-01-10T10:00:00' },
+  { id: 'TXN005', accountId: 'EA006', type: 'top_up', amount: 1000.00, balanceAfter: 1500.00, description: 'Youth Education Grant', externalDescription: 'Youth Education Grant Q1 2025', reference: 'YEG-2025-006', status: 'completed', createdAt: '2025-01-08T11:30:00' },
+  { id: 'TXN007', accountId: 'EA008', type: 'top_up', amount: 500.00, balanceAfter: 1100.00, description: 'Quarterly Top-up', externalDescription: 'Quarterly Top-up Q1 2025', reference: 'QTR-2025-Q1-008', status: 'completed', createdAt: '2025-01-12T16:00:00' },
+  { id: 'TXN008', accountId: 'EA004', type: 'top_up', amount: 200.00, balanceAfter: 875.25, description: 'Ad-hoc Top-up', externalDescription: 'Special Grant', reference: 'ADH-2025-004', status: 'completed', createdAt: '2025-01-15T12:00:00' },
 ];
 
-// Demo Outstanding Charges - Multiple charges for AH001 to demonstrate payment scenarios
-// Scenario 1: $50 charge - balance sufficient ($100)
-// Scenario 2: $150 charge - balance insufficient, need combined payment
+// Demo Outstanding Charges - Updated to 2025, all unpaid (no overdue status in this project)
 export const outstandingCharges: OutstandingCharge[] = [
-  { id: 'CHG001', accountId: 'EA001', courseId: 'CRS001', courseName: 'Introduction to Programming', period: 'Jan 2025', amount: 150.00, dueDate: '2025-01-15', status: 'unpaid' },
-  { id: 'CHG002', accountId: 'EA001', courseId: 'CRS003', courseName: 'English Communication', period: 'Jan 2025', amount: 50.00, dueDate: '2025-01-15', status: 'unpaid' },
-  { id: 'CHG006', accountId: 'EA001', courseId: 'CRS007', courseName: 'Data Analytics', period: 'Jan 2025', amount: 220.00, dueDate: '2025-01-20', status: 'unpaid' },
-  { id: 'CHG007', accountId: 'EA001', courseId: 'CRS002', courseName: 'Business Management', period: 'Dec 2024', amount: 200.00, dueDate: '2024-12-20', status: 'overdue' },
-  { id: 'CHG003', accountId: 'EA003', courseId: 'CRS001', courseName: 'Introduction to Programming', period: 'Jan 2025', amount: 150.00, dueDate: '2025-01-15', status: 'unpaid' },
-  { id: 'CHG004', accountId: 'EA004', courseId: 'CRS002', courseName: 'Business Management', period: 'Dec 2024', amount: 200.00, dueDate: '2024-12-15', status: 'overdue' },
-  { id: 'CHG005', accountId: 'EA011', courseId: 'CRS006', courseName: 'Digital Marketing', period: 'Dec 2024', amount: 160.00, dueDate: '2024-12-20', status: 'unpaid' },
+  { id: 'CHG001', accountId: 'EA001', courseId: 'CRS001', courseName: 'Introduction to Programming', period: 'Cycle 1 - Jan 2025', amount: 150.00, dueDate: '2025-01-25', status: 'unpaid' },
+  { id: 'CHG002', accountId: 'EA001', courseId: 'CRS003', courseName: 'English Communication', period: 'Cycle 1 - Jan 2025', amount: 50.00, dueDate: '2025-01-25', status: 'unpaid' },
+  { id: 'CHG006', accountId: 'EA001', courseId: 'CRS007', courseName: 'Data Analytics', period: 'Cycle 1 - Jan 2025', amount: 220.00, dueDate: '2025-01-25', status: 'unpaid' },
+  { id: 'CHG007', accountId: 'EA001', courseId: 'CRS002', courseName: 'Business Management', period: 'Cycle 1 - Q1 2025', amount: 200.00, dueDate: '2025-01-25', status: 'unpaid' },
+  { id: 'CHG003', accountId: 'EA003', courseId: 'CRS001', courseName: 'Introduction to Programming', period: 'Cycle 1 - Jan 2025', amount: 150.00, dueDate: '2025-01-25', status: 'unpaid' },
+  { id: 'CHG004', accountId: 'EA004', courseId: 'CRS002', courseName: 'Business Management', period: 'Cycle 1 - Q1 2025', amount: 200.00, dueDate: '2025-01-25', status: 'unpaid' },
+  { id: 'CHG008', accountId: 'EA008', courseId: 'CRS007', courseName: 'Data Analytics', period: 'Cycle 1 - Jan 2025', amount: 220.00, dueDate: '2025-01-25', status: 'unpaid' },
 ];
 
-// Demo Batches
+// Demo Batches - Updated to 2025
 export const batches: Batch[] = [
-  { id: 'BAT001', type: 'top_up', description: 'Annual Education Subsidy - Dec 2024', totalAmount: 15000.00, accountCount: 30, status: 'completed', createdAt: '2024-12-01T08:00:00', createdBy: 'Admin User' },
-  { id: 'BAT002', type: 'fee_run', description: 'Monthly Fee Run - Dec 2024', totalAmount: 8500.00, accountCount: 45, status: 'completed', createdAt: '2024-12-05T14:00:00', createdBy: 'Finance User' },
-  { id: 'BAT003', type: 'top_up', description: 'Youth Education Grant - Q4', totalAmount: 5000.00, accountCount: 10, status: 'pending', createdAt: '2024-12-20T10:00:00', createdBy: 'Admin User' },
+  { id: 'BAT001', type: 'top_up', description: 'Annual Education Subsidy - Jan 2025', externalDescription: 'Annual Education Subsidy 2025', totalAmount: 15000.00, accountCount: 30, status: 'completed', createdAt: '2025-01-05T08:00:00', createdBy: 'Admin User' },
+  { id: 'BAT002', type: 'top_up', description: 'Youth Education Grant - Q1 2025', externalDescription: 'Youth Education Grant Q1', totalAmount: 5000.00, accountCount: 10, status: 'pending', createdAt: '2025-01-20T10:00:00', createdBy: 'Admin User' },
 ];
 
 // Demo Audit Logs
