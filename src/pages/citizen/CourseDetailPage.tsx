@@ -52,15 +52,13 @@ const CitizenCourseDetailPage: React.FC = () => {
     ? outstandingCharges.filter(c => c.courseId === courseId)
     : [];
   
-  // Sort course transactions by newest first
+  // Sort course transactions by newest first - strictly filter by courseId only
   const courseTransactions = useMemo(() => {
-    if (!courseId || !course) return [];
+    if (!courseId) return [];
     return transactions
-      .filter(t => t.courseId === courseId || 
-        t.description?.toLowerCase().includes(course?.name?.toLowerCase() || '') ||
-        t.courses?.some(c => c.courseId === courseId))
+      .filter(t => t.courseId === courseId || t.courses?.some(c => c.courseId === courseId))
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  }, [courseId, course, transactions]);
+  }, [courseId, transactions]);
 
   // Calculate fee breakdown
   const feeBreakdown = useMemo(() => {
@@ -150,9 +148,9 @@ const CitizenCourseDetailPage: React.FC = () => {
       if (cycleIndex > 24) break;
     }
 
-    // Key logic: Only the FIRST unpaid cycle is "pending" (payable)
+    // Key logic: Only the FIRST unpaid cycle is "pending" (payable) AND only if it has an outstanding charge
     // All other cycles are "ongoing" (student must pay sequentially)
-    if (unpaidCycles.length > 0) {
+    if (unpaidCycles.length > 0 && unpaidCycles[0].charge) {
       unpaidCycles[0].status = 'pending';
       // Rest remain 'ongoing' (already set as default)
     }
@@ -343,14 +341,13 @@ const CitizenCourseDetailPage: React.FC = () => {
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="font-semibold">{formatCurrency(cycle.amount)}</span>
-                    {cycle.status === 'pending' ? (
-                      cycle.charge ? (
+                    {cycle.status === 'pending' && cycle.charge ? (
+                      <>
+                        <Badge variant="warning">Pending</Badge>
                         <Button size="sm" onClick={() => handleProceedToCheckout(cycle.charge!.id)}>
                           Pay
                         </Button>
-                      ) : (
-                        <Badge variant="warning">Pending</Badge>
-                      )
+                      </>
                     ) : (
                       <Badge className="bg-blue-500 hover:bg-blue-600 text-white">Ongoing</Badge>
                     )}
