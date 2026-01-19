@@ -343,12 +343,15 @@ const CitizenCourseDetailPage: React.FC = () => {
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="font-semibold">{formatCurrency(cycle.amount)}</span>
-                    {cycle.status === 'pending' && cycle.charge && (
-                      <Button size="sm" onClick={() => handleProceedToCheckout(cycle.charge!.id)}>
-                        Pay
-                      </Button>
-                    )}
-                    {cycle.status === 'ongoing' && (
+                    {cycle.status === 'pending' ? (
+                      cycle.charge ? (
+                        <Button size="sm" onClick={() => handleProceedToCheckout(cycle.charge!.id)}>
+                          Pay
+                        </Button>
+                      ) : (
+                        <Badge variant="warning">Pending</Badge>
+                      )
+                    ) : (
                       <Badge className="bg-blue-500 hover:bg-blue-600 text-white">Ongoing</Badge>
                     )}
                   </div>
