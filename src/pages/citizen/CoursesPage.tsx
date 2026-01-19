@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Table,
@@ -13,25 +14,22 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Separator } from '@/components/ui/separator';
 import { 
   BookOpen, 
   Calendar, 
   CreditCard,
   CheckCircle2,
   AlertCircle,
-  Eye,
-  Clock,
-  DollarSign,
   ArrowRight,
-  History
+  Search,
+  Filter
 } from 'lucide-react';
 import { CitizenLayout } from '@/components/layouts/CitizenLayout';
 import { useAuth } from '@/contexts/AuthContext';
@@ -41,9 +39,23 @@ import {
   getOutstandingChargesByAccount,
   getEnrolmentsByHolder,
   getCourse,
-  getTransactionsByAccount
+  getCourses
 } from '@/lib/dataStore';
-import { formatCurrency, formatDate, OutstandingCharge, Transaction } from '@/lib/data';
+import { formatCurrency, formatDate, BillingCycle, Course } from '@/lib/data';
+
+const BILLING_CYCLE_LABELS: Record<BillingCycle, string> = {
+  monthly: 'Monthly',
+  quarterly: 'Quarterly',
+  bi_annually: 'Bi-annually',
+  annually: 'Annually',
+};
+
+const BILLING_CYCLE_MONTHS: Record<BillingCycle, number> = {
+  monthly: 1,
+  quarterly: 3,
+  bi_annually: 6,
+  annually: 12,
+};
 
 const CoursesPage: React.FC = () => {
   const navigate = useNavigate();
@@ -52,25 +64,59 @@ const CoursesPage: React.FC = () => {
   const educationAccount = citizenUser ? getEducationAccountByHolder(citizenUser.id) : null;
   const outstandingCharges = educationAccount ? getOutstandingChargesByAccount(educationAccount.id) : [];
   const enrolments = citizenUser ? getEnrolmentsByHolder(citizenUser.id) : [];
-  const transactions = educationAccount ? getTransactionsByAccount(educationAccount.id) : [];
+  const allCourses = useDataStore(getCourses);
   
   // Force re-render when data changes
   useDataStore(() => educationAccount);
 
   const [selectedCharges, setSelectedCharges] = useState<string[]>([]);
-  const [courseDetailOpen, setCourseDetailOpen] = useState(false);
-  const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
   const [selectAll, setSelectAll] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [providerFilter, setProviderFilter] = useState<string>('all');
+  const [paymentTypeFilter, setPaymentTypeFilter] = useState<string>('all');
 
-  // Sort enrolments by newest first
-  const sortedEnrolments = [...enrolments].sort((a, b) => 
-    new Date(b.startDate).getTime() - new Date(a.startDate).getTime()
-  );
-  const activeEnrolments = sortedEnrolments.filter(e => e.isActive);
+  // Sort enrolments by newest first (by enrollment date)
+  const sortedEnrolments = useMemo(() => {
+    return [...enrolments]
+      .filter(e => e.isActive)
+      .sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime());
+  }, [enrolments]);
+
+  // Get unique providers from enrolled courses
+  const enrolledProviders = useMemo(() => {
+    const providers = new Set<string>();
+    sortedEnrolments.forEach(e => {
+      const course = getCourse(e.courseId);
+      if (course?.provider) providers.add(course.provider);
+    });
+    return Array.from(providers).sort();
+  }, [sortedEnrolments]);
+
+  // Filter enrolled courses
+  const filteredEnrolments = useMemo(() => {
+    return sortedEnrolments.filter(enrolment => {
+      const course = getCourse(enrolment.courseId);
+      if (!course) return false;
+
+      // Search filter
+      const matchesSearch = searchQuery === '' || 
+        course.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        course.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        course.provider.toLowerCase().includes(searchQuery.toLowerCase());
+
+      // Provider filter
+      const matchesProvider = providerFilter === 'all' || course.provider === providerFilter;
+
+      // Payment type filter
+      const matchesPaymentType = paymentTypeFilter === 'all' || course.paymentType === paymentTypeFilter;
+
+      return matchesSearch && matchesProvider && matchesPaymentType;
+    });
+  }, [sortedEnrolments, searchQuery, providerFilter, paymentTypeFilter]);
   
   // Sort pending charges by due date (earliest first for payments)
   const pendingCharges = outstandingCharges
-    .filter(c => c.status === 'unpaid')
+    .filter(c => c.status === 'unpaid' || c.status === 'overdue')
     .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
 
   const selectedTotal = selectedCharges.reduce((sum, id) => {
@@ -108,30 +154,47 @@ const CoursesPage: React.FC = () => {
   };
 
   const handleViewCourseDetails = (courseId: string) => {
-    setSelectedCourseId(courseId);
-    setCourseDetailOpen(true);
+    navigate(`/portal/courses/${courseId}`);
   };
 
-  // Get course details for the selected course
-  const selectedCourse = selectedCourseId ? getCourse(selectedCourseId) : null;
-  const selectedEnrolment = selectedCourseId 
-    ? activeEnrolments.find(e => e.courseId === selectedCourseId) 
-    : null;
-  const courseCharges = selectedCourseId 
-    ? outstandingCharges.filter(c => c.courseId === selectedCourseId)
-    : [];
-  // Sort course transactions by newest first
-  const courseTransactions = selectedCourseId
-    ? transactions
-        .filter(t => t.courseId === selectedCourseId || 
-          t.description?.toLowerCase().includes(selectedCourse?.name?.toLowerCase() || ''))
-        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-    : [];
+  // Get payment status for a course enrollment
+  const getCoursePaymentStatus = (courseId: string): 'paid' | 'ongoing' | 'pending' | 'overdue' => {
+    const courseCharges = outstandingCharges.filter(c => c.courseId === courseId);
+    const unpaidCharges = courseCharges.filter(c => c.status === 'unpaid' || c.status === 'overdue');
+    
+    if (unpaidCharges.length === 0) {
+      // No pending charges - consider as ongoing (paid for current cycle)
+      return 'ongoing';
+    }
+    if (unpaidCharges.some(c => c.status === 'overdue')) {
+      return 'overdue';
+    }
+    return 'pending';
+  };
 
-  // Calculate fee breakdown for selected course
-  const totalCourseFee = selectedCourse ? selectedCourse.monthlyFee * 12 : 0; // Assuming yearly
-  const paidAmount = courseCharges.filter(c => c.status === 'paid').reduce((sum, c) => sum + c.amount, 0);
-  const upcomingFee = courseCharges.filter(c => c.status === 'unpaid').reduce((sum, c) => sum + c.amount, 0);
+  const getPaymentStatusBadge = (status: 'paid' | 'ongoing' | 'pending' | 'overdue') => {
+    switch (status) {
+      case 'paid':
+        return <Badge variant="success">Paid</Badge>;
+      case 'ongoing':
+        return <Badge className="bg-blue-500 hover:bg-blue-600 text-white">Ongoing</Badge>;
+      case 'pending':
+        return <Badge variant="warning">Pending</Badge>;
+      case 'overdue':
+        return <Badge variant="destructive">Overdue</Badge>;
+    }
+  };
+
+  const getBillingCycleSuffix = (course: Course) => {
+    if (course.paymentType !== 'recurring' || !course.billingCycle) return '';
+    switch (course.billingCycle) {
+      case 'monthly': return '/mo';
+      case 'quarterly': return '/qtr';
+      case 'bi_annually': return '/6mo';
+      case 'annually': return '/yr';
+      default: return '';
+    }
+  };
 
   return (
     <CitizenLayout>
@@ -165,14 +228,50 @@ const CoursesPage: React.FC = () => {
               <CardDescription>All courses you are currently enrolled in</CardDescription>
             </CardHeader>
             <CardContent>
-              {activeEnrolments.length > 0 ? (
+              {/* Search and Filters */}
+              <div className="flex flex-col sm:flex-row gap-3 mb-6">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search courses..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
+                <Select value={providerFilter} onValueChange={setProviderFilter}>
+                  <SelectTrigger className="w-[180px]">
+                    <Filter className="h-4 w-4 mr-2" />
+                    <SelectValue placeholder="Provider" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Providers</SelectItem>
+                    {enrolledProviders.map(provider => (
+                      <SelectItem key={provider} value={provider}>{provider}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={paymentTypeFilter} onValueChange={setPaymentTypeFilter}>
+                  <SelectTrigger className="w-[160px]">
+                    <SelectValue placeholder="Payment Type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Types</SelectItem>
+                    <SelectItem value="one_time">One-time</SelectItem>
+                    <SelectItem value="recurring">Recurring</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {filteredEnrolments.length > 0 ? (
                 <div className="space-y-4">
-                  {activeEnrolments.map((enrolment) => {
+                  {filteredEnrolments.map((enrolment) => {
                     const course = getCourse(enrolment.courseId);
                     if (!course) return null;
                     
                     const charge = pendingCharges.find(c => c.courseId === course.id);
                     const hasPendingPayment = !!charge;
+                    const paymentStatus = getCoursePaymentStatus(course.id);
 
                     return (
                       <div
@@ -185,20 +284,25 @@ const CoursesPage: React.FC = () => {
                             <BookOpen className="h-6 w-6 text-primary" />
                           </div>
                           <div>
-                            <h3 className="font-semibold text-foreground">{course.name}</h3>
-                            <p className="text-sm text-muted-foreground">{course.code}</p>
+                            <h3 className="font-semibold text-foreground">
+                              [{course.code}] - {course.name}
+                            </h3>
+                            <p className="text-sm text-muted-foreground">{course.provider}</p>
                             <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
                               <span className="flex items-center gap-1">
                                 <Calendar className="h-4 w-4" />
                                 Enrolled: {formatDate(enrolment.startDate)}
                               </span>
+                              <Badge variant="outline" className="text-xs">
+                                {course.paymentType === 'one_time' ? 'One-time' : 'Recurring'}
+                              </Badge>
                             </div>
                           </div>
                         </div>
                         <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
                           {hasPendingPayment ? (
                             <>
-                              <Badge variant="warning">Pending</Badge>
+                              {getPaymentStatusBadge(paymentStatus)}
                               <span className="font-bold text-lg text-foreground">
                                 {formatCurrency(charge?.amount || course.monthlyFee)}
                               </span>
@@ -209,9 +313,9 @@ const CoursesPage: React.FC = () => {
                           ) : (
                             <>
                               <span className="font-medium text-muted-foreground">
-                                {formatCurrency(course.monthlyFee)}/mo
+                                {formatCurrency(course.monthlyFee)}{getBillingCycleSuffix(course)}
                               </span>
-                              <Badge variant="success">Paid</Badge>
+                              {getPaymentStatusBadge(paymentStatus)}
                             </>
                           )}
                         </div>
@@ -222,8 +326,12 @@ const CoursesPage: React.FC = () => {
               ) : (
                 <div className="text-center py-12 text-muted-foreground">
                   <BookOpen className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                  <p className="font-medium">No courses enrolled</p>
-                  <p className="text-sm">You are not currently enrolled in any courses</p>
+                  <p className="font-medium">No courses found</p>
+                  <p className="text-sm">
+                    {sortedEnrolments.length > 0 
+                      ? 'Try adjusting your search or filters'
+                      : 'You are not currently enrolled in any courses'}
+                  </p>
                 </div>
               )}
             </CardContent>
@@ -260,27 +368,34 @@ const CoursesPage: React.FC = () => {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {pendingCharges.map((charge) => (
-                        <TableRow key={charge.id}>
-                          <TableCell>
-                            <Checkbox
-                              checked={selectedCharges.includes(charge.id)}
-                              onCheckedChange={(checked) => 
-                                handleSelectCharge(charge.id, checked as boolean)
-                              }
-                            />
-                          </TableCell>
-                          <TableCell className="font-medium">{charge.courseName}</TableCell>
-                          <TableCell>{charge.period}</TableCell>
-                          <TableCell>{formatDate(charge.dueDate)}</TableCell>
-                          <TableCell>
-                            <Badge variant="warning">Pending</Badge>
-                          </TableCell>
-                          <TableCell className="text-right font-semibold">
-                            {formatCurrency(charge.amount)}
-                          </TableCell>
-                        </TableRow>
-                      ))}
+                      {pendingCharges.map((charge) => {
+                        const course = getCourse(charge.courseId);
+                        return (
+                          <TableRow key={charge.id}>
+                            <TableCell>
+                              <Checkbox
+                                checked={selectedCharges.includes(charge.id)}
+                                onCheckedChange={(checked) => 
+                                  handleSelectCharge(charge.id, checked as boolean)
+                                }
+                              />
+                            </TableCell>
+                            <TableCell className="font-medium">
+                              {course ? `[${course.code}] - ${course.name}` : charge.courseName}
+                            </TableCell>
+                            <TableCell>{charge.period}</TableCell>
+                            <TableCell>{formatDate(charge.dueDate)}</TableCell>
+                            <TableCell>
+                              <Badge variant={charge.status === 'overdue' ? 'destructive' : 'warning'}>
+                                {charge.status === 'overdue' ? 'Overdue' : 'Pending'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-right font-semibold">
+                              {formatCurrency(charge.amount)}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
                     </TableBody>
                   </Table>
 
@@ -312,137 +427,6 @@ const CoursesPage: React.FC = () => {
           </Card>
         </TabsContent>
       </Tabs>
-
-      {/* Course Details Dialog */}
-      <Dialog open={courseDetailOpen} onOpenChange={setCourseDetailOpen}>
-        <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <BookOpen className="h-5 w-5" />
-              Course Details
-            </DialogTitle>
-            <DialogDescription>
-              View course information and payment history
-            </DialogDescription>
-          </DialogHeader>
-          
-          {selectedCourse && selectedEnrolment && (
-            <div className="space-y-6 pt-4">
-              {/* Course Information */}
-              <div>
-                <h3 className="font-semibold text-lg mb-3">{selectedCourse.name}</h3>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <span className="text-muted-foreground">Course Code</span>
-                    <p className="font-medium">{selectedCourse.code}</p>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Provider</span>
-                    <p className="font-medium">{selectedCourse.provider}</p>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Enrolled Since</span>
-                    <p className="font-medium">{formatDate(selectedEnrolment.startDate)}</p>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Monthly Fee</span>
-                    <p className="font-medium">{formatCurrency(selectedCourse.monthlyFee)}</p>
-                  </div>
-                </div>
-              </div>
-
-              <Separator />
-
-              {/* Fee Summary */}
-              <div>
-                <h4 className="font-semibold flex items-center gap-2 mb-3">
-                  <DollarSign className="h-4 w-4" />
-                  Fee Summary
-                </h4>
-                <div className="grid grid-cols-3 gap-4">
-                  <Card className="p-4">
-                    <p className="text-sm text-muted-foreground">Total Fee</p>
-                    <p className="text-xl font-bold">{formatCurrency(totalCourseFee)}</p>
-                  </Card>
-                  <Card className="p-4">
-                    <p className="text-sm text-muted-foreground">Paid</p>
-                    <p className="text-xl font-bold text-success">{formatCurrency(paidAmount)}</p>
-                  </Card>
-                  <Card className="p-4">
-                    <p className="text-sm text-muted-foreground">Upcoming</p>
-                    <p className="text-xl font-bold text-warning">{formatCurrency(upcomingFee)}</p>
-                  </Card>
-                </div>
-              </div>
-
-              {/* Upcoming Payments */}
-              {courseCharges.filter(c => c.status === 'unpaid').length > 0 && (
-                <>
-                  <Separator />
-                  <div>
-                    <h4 className="font-semibold flex items-center gap-2 mb-3">
-                      <Clock className="h-4 w-4" />
-                      Upcoming Payments
-                    </h4>
-                    <div className="space-y-2">
-                      {courseCharges.filter(c => c.status === 'unpaid').map(charge => (
-                        <div key={charge.id} className="flex items-center justify-between p-3 border rounded-lg">
-                          <div>
-                            <p className="font-medium">{charge.period}</p>
-                            <p className="text-sm text-muted-foreground">Due: {formatDate(charge.dueDate)}</p>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <span className="font-semibold">{formatCurrency(charge.amount)}</span>
-                            <Button size="sm" onClick={() => {
-                              setCourseDetailOpen(false);
-                              handleProceedToCheckout(charge.id);
-                            }}>
-                              Pay
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </>
-              )}
-
-              {/* Payment History */}
-              <Separator />
-              <div>
-                <h4 className="font-semibold flex items-center gap-2 mb-3">
-                  <History className="h-4 w-4" />
-                  Payment History
-                </h4>
-                {courseTransactions.length > 0 ? (
-                  <div className="space-y-2">
-                    {courseTransactions.slice(0, 5).map(txn => (
-                      <div key={txn.id} className="flex items-center justify-between p-3 border rounded-lg">
-                        <div>
-                          <p className="font-medium">{txn.externalDescription || txn.description}</p>
-                          <p className="text-sm text-muted-foreground">{formatDate(txn.createdAt)}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className={`font-semibold ${txn.status === 'completed' ? 'text-success' : 'text-destructive'}`}>
-                            {formatCurrency(Math.abs(txn.amount))}
-                          </p>
-                          <Badge variant={txn.status === 'completed' ? 'success' : 'destructive'}>
-                            {txn.status === 'completed' ? 'Success' : 'Failed'}
-                          </Badge>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground text-center py-4">
-                    No payment history for this course
-                  </p>
-                )}
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
     </CitizenLayout>
   );
 };
