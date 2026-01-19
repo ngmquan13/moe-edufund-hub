@@ -78,11 +78,37 @@ const CitizenCourseDetailPage: React.FC = () => {
     return { total, paid, upcoming };
   }, [course, courseCharges]);
 
-  // Generate payment cycles for recurring courses - only cycles from enrollment date onwards, excluding paid ones
+  // Generate payment cycles - supports both one-time and recurring courses
   // Key logic: Student must pay cycles sequentially - only the FIRST unpaid cycle is "pending" (payable),
   // all subsequent cycles are "ongoing" (not yet payable until previous cycle is paid)
   const upcomingPaymentCycles = useMemo(() => {
-    if (!course || !enrolment || course.paymentType !== 'recurring' || !course.billingCycle) {
+    if (!course || !enrolment) {
+      return [];
+    }
+
+    // Handle one-time payment courses
+    if (course.paymentType === 'one_time') {
+      const charge = courseCharges.find(c => c.status === 'unpaid');
+      if (!charge) return []; // Already paid
+      
+      const enrollmentDate = new Date(enrolment.startDate);
+      const paymentDeadlineDays = course.paymentDeadlineDays || 5;
+      const dueDate = new Date(enrollmentDate);
+      dueDate.setDate(dueDate.getDate() + paymentDeadlineDays);
+      
+      return [{
+        id: 'one-time-payment',
+        period: 'Course Fee',
+        amount: course.monthlyFee,
+        dueDate,
+        status: 'pending' as const,
+        charge,
+        cycleNumber: 1,
+      }];
+    }
+
+    // Handle recurring courses
+    if (!course.billingCycle) {
       return [];
     }
 
@@ -262,6 +288,13 @@ const CitizenCourseDetailPage: React.FC = () => {
                 </div>
               </div>
             )}
+            <div className="flex items-start gap-2">
+              <BookOpen className="h-4 w-4 text-muted-foreground mt-0.5" />
+              <div>
+                <p className="text-muted-foreground">Provider</p>
+                <p className="font-medium">{course.provider}</p>
+              </div>
+            </div>
             <div className="flex items-start gap-2">
               <CreditCard className="h-4 w-4 text-muted-foreground mt-0.5" />
               <div>
