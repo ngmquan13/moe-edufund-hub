@@ -80,7 +80,7 @@ const CitizenCourseDetailPage: React.FC = () => {
     return { total, paid, upcoming };
   }, [course, courseCharges]);
 
-  // Generate payment cycles for recurring courses - only cycles from enrollment date onwards, excluding paid ones
+  // Generate payment cycles for recurring courses - only unpaid cycles from enrollment date onwards
   const upcomingPaymentCycles = useMemo(() => {
     if (!course || !enrolment || course.paymentType !== 'recurring' || !course.billingCycle) {
       return [];
@@ -92,7 +92,7 @@ const CitizenCourseDetailPage: React.FC = () => {
     const paymentDeadlineDays = course.paymentDeadlineDays || 5;
     const today = new Date();
 
-    const cycles: Array<{
+    const unpaidCycles: Array<{
       id: string;
       period: string;
       amount: number;
@@ -102,7 +102,7 @@ const CitizenCourseDetailPage: React.FC = () => {
     }> = [];
 
     // Calculate cycles starting from enrollment date
-    let cycleIndex = 0;
+    let courseCycleIndex = 0;
     let cycleStart = new Date(enrollmentDate);
     
     while (true) {
@@ -114,14 +114,14 @@ const CitizenCourseDetailPage: React.FC = () => {
 
       const period = `${cycleStart.toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })}`;
       
-      // Find matching charge if exists
-      const charge = courseCharges.find(c => c.period?.includes(period) || c.period === `Cycle ${cycleIndex + 1}`);
+      // Find matching charge if exists (by period or by original cycle number)
+      const charge = courseCharges.find(c => c.period?.includes(period));
       
       // Skip paid cycles - they should only appear in payment history
       if (charge?.status === 'paid') {
         cycleStart = new Date(cycleStart);
         cycleStart.setMonth(cycleStart.getMonth() + cycleMonths);
-        cycleIndex++;
+        courseCycleIndex++;
         continue;
       }
       
@@ -136,9 +136,12 @@ const CitizenCourseDetailPage: React.FC = () => {
         status = 'pending';
       }
 
-      cycles.push({
-        id: `cycle-${cycleIndex + 1}`,
-        period: `Cycle ${cycleIndex + 1} - ${period}`,
+      // Display cycle number is sequential (1, 2, 3...) for unpaid cycles only
+      const displayCycleNumber = unpaidCycles.length + 1;
+
+      unpaidCycles.push({
+        id: `cycle-${displayCycleNumber}`,
+        period: `Cycle ${displayCycleNumber} - ${period}`,
         amount: course.monthlyFee,
         dueDate,
         status,
@@ -148,13 +151,13 @@ const CitizenCourseDetailPage: React.FC = () => {
       // Move to next cycle
       cycleStart = new Date(cycleStart);
       cycleStart.setMonth(cycleStart.getMonth() + cycleMonths);
-      cycleIndex++;
+      courseCycleIndex++;
       
       // Safety limit
-      if (cycleIndex > 24) break;
+      if (courseCycleIndex > 24) break;
     }
 
-    return cycles;
+    return unpaidCycles;
   }, [course, enrolment, courseCharges]);
 
   // Determine current payment status for the course - only 3 statuses: paid, pending, ongoing
