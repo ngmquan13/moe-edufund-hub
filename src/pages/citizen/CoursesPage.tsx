@@ -159,6 +159,7 @@ const CoursesPage: React.FC = () => {
 
   // Get payment status for a course enrollment - only 3 statuses: paid, pending, ongoing
   const getCoursePaymentStatus = (courseId: string): 'paid' | 'ongoing' | 'pending' => {
+    const course = getCourse(courseId);
     const courseCharges = outstandingCharges.filter(c => c.courseId === courseId);
     const unpaidCharges = courseCharges.filter(c => c.status === 'unpaid');
     const paidCharges = courseCharges.filter(c => c.status === 'paid');
@@ -166,7 +167,11 @@ const CoursesPage: React.FC = () => {
     if (unpaidCharges.length === 0) {
       // No pending charges
       if (paidCharges.length > 0) {
-        // Has paid charges - ongoing (paid for current cycle)
+        // For one-time payment courses, if paid then it's fully paid
+        if (course?.paymentType === 'one_time') {
+          return 'paid';
+        }
+        // For recurring courses - paid for current cycle, waiting for next
         return 'ongoing';
       }
       // All payments complete
