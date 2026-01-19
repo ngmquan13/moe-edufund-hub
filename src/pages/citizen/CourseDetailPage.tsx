@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, BookOpen, Calendar, Clock, DollarSign, History, Building, FileText, CreditCard, Lock } from 'lucide-react';
+import { ArrowLeft, BookOpen, Calendar, Clock, DollarSign, History, FileText, CreditCard } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -80,15 +80,15 @@ const CitizenCourseDetailPage: React.FC = () => {
     return { total, paid, upcoming };
   }, [course, courseCharges]);
 
-  // Generate all payment cycles for recurring courses
-  const allPaymentCycles = useMemo(() => {
+  // Generate payment cycles for recurring courses - only cycles from enrollment date onwards, excluding paid ones
+  const upcomingPaymentCycles = useMemo(() => {
     if (!course || !enrolment || course.paymentType !== 'recurring' || !course.billingCycle) {
       return [];
     }
 
     const cycleMonths = BILLING_CYCLE_MONTHS[course.billingCycle];
-    const totalCycles = course.durationMonths ? Math.ceil(course.durationMonths / cycleMonths) : 1;
     const enrollmentDate = new Date(enrolment.startDate);
+    const courseEndDate = course.endDate ? new Date(course.endDate) : null;
     const paymentDeadlineDays = course.paymentDeadlineDays || 5;
     const today = new Date();
 
@@ -97,13 +97,17 @@ const CitizenCourseDetailPage: React.FC = () => {
       period: string;
       amount: number;
       dueDate: Date;
-      status: 'paid' | 'payable' | 'locked' | 'overdue';
+      status: 'pending' | 'ongoing';
       charge?: OutstandingCharge;
     }> = [];
 
-    for (let i = 0; i < totalCycles; i++) {
-      const cycleStart = new Date(enrollmentDate);
-      cycleStart.setMonth(cycleStart.getMonth() + (i * cycleMonths));
+    // Calculate cycles starting from enrollment date
+    let cycleIndex = 0;
+    let cycleStart = new Date(enrollmentDate);
+    
+    while (true) {
+      // Stop if we've passed the course end date
+      if (courseEndDate && cycleStart > courseEndDate) break;
       
       const dueDate = new Date(cycleStart);
       dueDate.setDate(dueDate.getDate() + paymentDeadlineDays);
@@ -111,59 +115,64 @@ const CitizenCourseDetailPage: React.FC = () => {
       const period = `${cycleStart.toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })}`;
       
       // Find matching charge if exists
-      const charge = courseCharges.find(c => c.period?.includes(period) || c.period === `Cycle ${i + 1}`);
+      const charge = courseCharges.find(c => c.period?.includes(period) || c.period === `Cycle ${cycleIndex + 1}`);
       
-      let status: 'paid' | 'payable' | 'locked' | 'overdue' = 'locked';
+      // Skip paid cycles - they should only appear in payment history
+      if (charge?.status === 'paid') {
+        cycleStart = new Date(cycleStart);
+        cycleStart.setMonth(cycleStart.getMonth() + cycleMonths);
+        cycleIndex++;
+        continue;
+      }
       
-      if (charge) {
-        if (charge.status === 'paid') {
-          status = 'paid';
-        } else if (charge.status === 'overdue') {
-          status = 'overdue';
-        } else if (today >= cycleStart && today <= dueDate) {
-          status = 'payable';
-        } else if (today > dueDate) {
-          status = 'overdue';
-        }
-      } else {
-        // Check if this cycle is currently due
-        if (today >= cycleStart && today <= dueDate) {
-          status = 'payable';
-        } else if (today > dueDate && today < new Date(cycleStart.getTime() + cycleMonths * 30 * 24 * 60 * 60 * 1000)) {
-          // Check if overdue but within the cycle period
-          status = 'overdue';
-        }
+      // Determine status - only 'pending' or 'ongoing'
+      let status: 'pending' | 'ongoing' = 'ongoing';
+      
+      if (charge && charge.status === 'unpaid') {
+        // Has an unpaid charge - it's pending payment
+        status = 'pending';
+      } else if (today >= cycleStart && today <= dueDate) {
+        // Within payment window
+        status = 'pending';
       }
 
       cycles.push({
-        id: `cycle-${i + 1}`,
-        period: `Cycle ${i + 1} - ${period}`,
+        id: `cycle-${cycleIndex + 1}`,
+        period: `Cycle ${cycleIndex + 1} - ${period}`,
         amount: course.monthlyFee,
         dueDate,
         status,
         charge,
       });
+
+      // Move to next cycle
+      cycleStart = new Date(cycleStart);
+      cycleStart.setMonth(cycleStart.getMonth() + cycleMonths);
+      cycleIndex++;
+      
+      // Safety limit
+      if (cycleIndex > 24) break;
     }
 
     return cycles;
   }, [course, enrolment, courseCharges]);
 
-  // Determine current payment status for the course
+  // Determine current payment status for the course - only 3 statuses: paid, pending, ongoing
   const currentPaymentStatus = useMemo(() => {
-    const unpaidCharges = courseCharges.filter(c => c.status === 'unpaid' || c.status === 'overdue');
+    const unpaidCharges = courseCharges.filter(c => c.status === 'unpaid');
     if (unpaidCharges.length === 0) {
-      // No pending charges - check if all cycles are complete
-      const paidCycles = allPaymentCycles.filter(c => c.status === 'paid');
-      if (paidCycles.length > 0 && paidCycles.length < allPaymentCycles.length) {
+      // No pending charges
+      const paidCharges = courseCharges.filter(c => c.status === 'paid');
+      if (paidCharges.length > 0 && upcomingPaymentCycles.length > 0) {
+        // Has paid charges and still has upcoming cycles - ongoing
         return 'ongoing';
       }
+      // All payments complete
       return 'paid';
     }
-    if (unpaidCharges.some(c => c.status === 'overdue')) {
-      return 'overdue';
-    }
+    // Has unpaid charges - pending
     return 'pending';
-  }, [courseCharges, allPaymentCycles]);
+  }, [courseCharges, upcomingPaymentCycles]);
 
   const handleProceedToCheckout = (chargeId: string) => {
     navigate('/portal/courses/checkout', { 
@@ -193,8 +202,6 @@ const CitizenCourseDetailPage: React.FC = () => {
         return <Badge className="bg-blue-500 hover:bg-blue-600 text-white">Ongoing</Badge>;
       case 'pending':
         return <Badge variant="warning">Pending</Badge>;
-      case 'overdue':
-        return <Badge variant="destructive">Overdue</Badge>;
       default:
         return null;
     }
@@ -210,9 +217,8 @@ const CitizenCourseDetailPage: React.FC = () => {
           <div>
             <h1 className="text-2xl font-bold text-foreground flex items-center gap-3">
               <BookOpen className="h-6 w-6 text-primary" />
-              [{course.code}] - {course.name}
+              {course.name}
             </h1>
-            <p className="text-muted-foreground mt-1">{course.provider}</p>
           </div>
           {getPaymentStatusBadge()}
         </div>
@@ -228,13 +234,6 @@ const CitizenCourseDetailPage: React.FC = () => {
               <div>
                 <p className="text-muted-foreground">Course Code</p>
                 <p className="font-medium">{course.code}</p>
-              </div>
-            </div>
-            <div className="flex items-start gap-2">
-              <Building className="h-4 w-4 text-muted-foreground mt-0.5" />
-              <div>
-                <p className="text-muted-foreground">Provider</p>
-                <p className="font-medium">{course.provider}</p>
               </div>
             </div>
             <div className="flex items-start gap-2">
@@ -319,8 +318,8 @@ const CitizenCourseDetailPage: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Upcoming Payments - Show all cycles */}
-      {allPaymentCycles.length > 0 && (
+      {/* Payment Schedule - Only show unpaid upcoming cycles */}
+      {upcomingPaymentCycles.length > 0 && (
         <Card className="mb-6">
           <CardContent className="pt-6">
             <h4 className="font-semibold flex items-center gap-2 mb-4">
@@ -328,55 +327,31 @@ const CitizenCourseDetailPage: React.FC = () => {
               Payment Schedule
             </h4>
             <div className="space-y-2">
-              {allPaymentCycles.map((cycle) => (
+              {upcomingPaymentCycles.map((cycle) => (
                 <div 
                   key={cycle.id} 
-                  className={`flex items-center justify-between p-3 border rounded-lg ${
-                    cycle.status === 'locked' ? 'bg-muted/30 opacity-70' : ''
-                  }`}
+                  className="flex items-center justify-between p-3 border rounded-lg"
                 >
-                  <div className="flex items-center gap-3">
-                    {cycle.status === 'locked' && (
-                      <Lock className="h-4 w-4 text-muted-foreground" />
-                    )}
-                    <div>
-                      <p className="font-medium">{cycle.period}</p>
-                      <p className="text-sm text-muted-foreground">
-                        Due: {formatDate(cycle.dueDate.toISOString())}
-                      </p>
-                    </div>
+                  <div>
+                    <p className="font-medium">{cycle.period}</p>
+                    <p className="text-sm text-muted-foreground">
+                      Due: {formatDate(cycle.dueDate.toISOString())}
+                    </p>
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="font-semibold">{formatCurrency(cycle.amount)}</span>
-                    {cycle.status === 'paid' && (
-                      <Badge variant="success">Paid</Badge>
-                    )}
-                    {cycle.status === 'payable' && cycle.charge && (
+                    {cycle.status === 'pending' && cycle.charge && (
                       <Button size="sm" onClick={() => handleProceedToCheckout(cycle.charge!.id)}>
                         Pay
                       </Button>
                     )}
-                    {cycle.status === 'overdue' && cycle.charge && (
-                      <>
-                        <Badge variant="destructive">Overdue</Badge>
-                        <Button size="sm" variant="destructive" onClick={() => handleProceedToCheckout(cycle.charge!.id)}>
-                          Pay Now
-                        </Button>
-                      </>
-                    )}
-                    {cycle.status === 'locked' && (
-                      <Badge variant="secondary">Not Due Yet</Badge>
+                    {cycle.status === 'ongoing' && (
+                      <Badge className="bg-blue-500 hover:bg-blue-600 text-white">Ongoing</Badge>
                     )}
                   </div>
                 </div>
               ))}
             </div>
-            {allPaymentCycles.some(c => c.status === 'locked') && (
-              <p className="text-sm text-muted-foreground mt-4 flex items-center gap-2">
-                <Lock className="h-3 w-3" />
-                Locked payments will become available when their billing cycle begins.
-              </p>
-            )}
           </CardContent>
         </Card>
       )}
