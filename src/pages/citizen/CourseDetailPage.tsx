@@ -127,6 +127,31 @@ const CitizenCourseDetailPage: React.FC = () => {
       cycleNumber: number;
     }> = [];
 
+    // Helper function to format period based on billing cycle
+    const formatPeriodLabel = (date: Date, billingCycle: BillingCycle): string => {
+      const year = date.getFullYear();
+      const month = date.getMonth(); // 0-indexed
+      
+      switch (billingCycle) {
+        case 'monthly':
+          // "Jan 2026", "Feb 2026", etc.
+          return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+        case 'quarterly':
+          // Q1 = Jan-Mar (months 0-2), Q2 = Apr-Jun (months 3-5), Q3 = Jul-Sep (months 6-8), Q4 = Oct-Dec (months 9-11)
+          const quarter = Math.floor(month / 3) + 1;
+          return `Q${quarter} ${year}`;
+        case 'bi_annually':
+          // H1 = Jan-Jun (months 0-5), H2 = Jul-Dec (months 6-11)
+          const half = month < 6 ? 1 : 2;
+          return `H${half} ${year}`;
+        case 'annually':
+          // Just the year
+          return `${year}`;
+        default:
+          return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+      }
+    };
+
     // Calculate cycles starting from enrollment date
     let cycleIndex = 0;
     let cycleStart = new Date(enrollmentDate);
@@ -139,6 +164,7 @@ const CitizenCourseDetailPage: React.FC = () => {
       const dueDate = new Date(cycleStart);
       dueDate.setDate(dueDate.getDate() + paymentDeadlineDays);
 
+      const periodLabel = formatPeriodLabel(cycleStart, course.billingCycle!);
       const period = `${cycleStart.toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })}`;
       
       // Find matching charge if exists
@@ -156,7 +182,7 @@ const CitizenCourseDetailPage: React.FC = () => {
       // Add to unpaid cycles list
       unpaidCycles.push({
         id: `cycle-${displayCycleNumber}`,
-        period: `Cycle ${displayCycleNumber} - ${period}`,
+        period: `Cycle ${displayCycleNumber} - ${periodLabel}`,
         amount: course.monthlyFee,
         dueDate,
         status: 'ongoing', // Will be updated below
