@@ -79,17 +79,12 @@ const TransactionsPage: React.FC = () => {
   };
 
   const getTransactionTitle = (txn: Transaction) => {
-    // For payments with course info, use "Course Fee - CODE1, CODE2" format
-    if (txn.courses && txn.courses.length > 0) {
-      const courseCodes = txn.courses.map(c => c.courseCode);
-      return `Course Fee - ${courseCodes.join(', ')}`;
-    }
-    
-    // Use external description for citizen-facing view (fallback to internal description)
+    // Use the stored description which already includes cycle info
+    // Format: "Course Fee - CODE1 (Cycle 1 - Jan 2025)" or "Course Fee - CODE1 (Cycle 1), CODE2 (Cycle 2)"
     const displayDescription = txn.externalDescription || txn.description;
     
-    // Use description if it already follows the format
-    if (displayDescription.startsWith('Course Fee -')) {
+    // If it's a course payment with proper format, use it directly
+    if (displayDescription && displayDescription.startsWith('Course Fee -')) {
       return displayDescription;
     }
     
@@ -98,7 +93,7 @@ const TransactionsPage: React.FC = () => {
       return txn.externalDescription || 'Account Top-up';
     }
     
-    return displayDescription;
+    return displayDescription || 'Transaction';
   };
 
   const getPaymentMethodBadge = (txn: Transaction) => {
