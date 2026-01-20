@@ -341,12 +341,12 @@ const CitizenCourseDetailPage: React.FC = () => {
               <p className="text-xl font-bold">{formatCurrency(feeBreakdown.total)}</p>
             </Card>
             <Card className="p-4 bg-muted/30">
-              <p className="text-sm text-muted-foreground">Paid</p>
+              <p className="text-sm text-muted-foreground">Total Paid</p>
               <p className="text-xl font-bold text-success">{formatCurrency(feeBreakdown.paid)}</p>
             </Card>
             <Card className="p-4 bg-muted/30">
-              <p className="text-sm text-muted-foreground">Upcoming</p>
-              <p className="text-xl font-bold text-warning">{formatCurrency(feeBreakdown.upcoming)}</p>
+              <p className="text-sm text-muted-foreground">Total Outstanding</p>
+              <p className="text-xl font-bold text-warning">{formatCurrency(feeBreakdown.total - feeBreakdown.paid)}</p>
             </Card>
           </div>
         </CardContent>
