@@ -82,10 +82,17 @@ const CheckoutPage: React.FC = () => {
   const [newCardCvc, setNewCardCvc] = useState('');
   const [newCardName, setNewCardName] = useState('');
 
+  // Combined payment - custom balance amount
+  const [customBalanceAmount, setCustomBalanceAmount] = useState<string>('');
+
   const balance = educationAccount?.balance || 0;
   const selectedTotal = selectedCharges.reduce((sum, c) => sum + c.amount, 0);
   const canPayWithBalance = balance >= selectedTotal;
-  const remainingAfterBalance = Math.max(0, selectedTotal - balance);
+  
+  // For combined payment: parse custom amount or default to full balance
+  const parsedCustomAmount = parseFloat(customBalanceAmount) || 0;
+  const combinedBalanceAmount = Math.min(Math.max(0, parsedCustomAmount), Math.min(balance, selectedTotal));
+  const combinedCardAmount = selectedTotal - combinedBalanceAmount;
 
   // Redirect if no charges selected
   useEffect(() => {
@@ -177,8 +184,8 @@ const CheckoutPage: React.FC = () => {
         } else if (paymentMethod === 'card') {
           cardPayment = selectedTotal;
         } else if (paymentMethod === 'combined') {
-          balanceUsed = Math.min(balance, selectedTotal);
-          cardPayment = remainingAfterBalance;
+          balanceUsed = combinedBalanceAmount;
+          cardPayment = combinedCardAmount;
         }
 
         // Build course items with course codes and cycle info for transaction details
@@ -390,8 +397,8 @@ const CheckoutPage: React.FC = () => {
                   </Label>
                 </div>
 
-                {/* Combined Payment - only show if balance is insufficient */}
-                {!canPayWithBalance && balance > 0 && (
+                {/* Combined Payment - always available if balance > 0 */}
+                {balance > 0 && (
                   <div className={`flex items-start space-x-3 p-4 rounded-lg border cursor-pointer transition-colors ${
                     paymentMethod === 'combined' ? 'border-primary bg-primary/5' : ''
                   }`}>
@@ -402,12 +409,59 @@ const CheckoutPage: React.FC = () => {
                         <span className="font-medium">Combined Payment</span>
                       </div>
                       <p className="text-sm text-muted-foreground mt-1">
-                        Use {formatCurrency(balance)} balance + {formatCurrency(remainingAfterBalance)} by card
+                        Split payment between balance and card
                       </p>
                     </Label>
                   </div>
                 )}
               </RadioGroup>
+
+              {/* Combined Payment Amount Input */}
+              {paymentMethod === 'combined' && (
+                <div className="space-y-3 pt-4 border-t">
+                  <h4 className="font-medium">Set Balance Amount</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Enter how much you want to pay from your balance (max {formatCurrency(Math.min(balance, selectedTotal))})
+                  </p>
+                  <div className="flex items-center gap-3">
+                    <div className="relative flex-1">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                      <Input
+                        type="number"
+                        min="0"
+                        max={Math.min(balance, selectedTotal)}
+                        step="0.01"
+                        placeholder="0.00"
+                        value={customBalanceAmount}
+                        onChange={(e) => setCustomBalanceAmount(e.target.value)}
+                        className="pl-7"
+                      />
+                    </div>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => setCustomBalanceAmount(Math.min(balance, selectedTotal).toFixed(2))}
+                    >
+                      Use Max
+                    </Button>
+                  </div>
+                  <div className="bg-muted/50 rounded-lg p-3 space-y-1 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">From Balance:</span>
+                      <span className="font-medium">{formatCurrency(combinedBalanceAmount)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">From Card:</span>
+                      <span className="font-medium">{formatCurrency(combinedCardAmount)}</span>
+                    </div>
+                  </div>
+                  {combinedCardAmount <= 0 && (
+                    <p className="text-sm text-warning">
+                      Card payment amount must be greater than $0. Consider using "Pay with Balance" instead.
+                    </p>
+                  )}
+                </div>
+              )}
 
               {/* Card Selection - show when paying with card or combined */}
               {(paymentMethod === 'card' || paymentMethod === 'combined') && (
@@ -520,11 +574,11 @@ const CheckoutPage: React.FC = () => {
                   <>
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">From Balance</span>
-                      <span className="text-success">-{formatCurrency(Math.min(balance, selectedTotal))}</span>
+                      <span className="text-success">-{formatCurrency(combinedBalanceAmount)}</span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">From Card</span>
-                      <span>{formatCurrency(remainingAfterBalance)}</span>
+                      <span>{formatCurrency(combinedCardAmount)}</span>
                     </div>
                   </>
                 )}
@@ -541,7 +595,7 @@ const CheckoutPage: React.FC = () => {
                 className="w-full" 
                 size="lg"
                 onClick={processPayment}
-                disabled={processingPayment || (paymentMethod !== 'balance' && !selectedCardId)}
+                disabled={processingPayment || (paymentMethod !== 'balance' && !selectedCardId) || (paymentMethod === 'combined' && combinedCardAmount <= 0)}
               >
                 {processingPayment ? (
                   <>Processing...</>
