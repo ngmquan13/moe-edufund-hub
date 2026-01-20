@@ -165,10 +165,20 @@ const CitizenCourseDetailPage: React.FC = () => {
       dueDate.setDate(dueDate.getDate() + paymentDeadlineDays);
 
       const periodLabel = formatPeriodLabel(cycleStart, course.billingCycle!);
-      const period = `${cycleStart.toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })}`;
+      const fullPeriodLabel = `Cycle ${displayCycleNumber} - ${periodLabel}`;
       
-      // Find matching charge if exists
-      const charge = courseCharges.find(c => c.period?.includes(period) || c.period === `Cycle ${cycleIndex + 1}`);
+      // Find matching charge - match against full period label or partial period label
+      // Also check for charges that match the display cycle number or contain the period label
+      const charge = courseCharges.find(c => {
+        if (!c.period) return false;
+        // Exact match on full label (e.g., "Cycle 1 - Jan 2026")
+        if (c.period === fullPeriodLabel) return true;
+        // Match if charge period contains the period label (e.g., "Jan 2026" in "Cycle 1 - Jan 2026")
+        if (c.period.includes(periodLabel)) return true;
+        // Fallback: match cycle number for first unpaid charge
+        if (c.period === `Cycle ${cycleIndex + 1}`) return true;
+        return false;
+      });
       
       // Skip paid cycles - they should only appear in payment history
       if (charge?.status === 'paid') {
