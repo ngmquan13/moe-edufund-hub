@@ -186,7 +186,7 @@ const CoursesPage: React.FC = () => {
       case 'paid':
         return <Badge variant="success">Paid</Badge>;
       case 'ongoing':
-        return <Badge className="bg-blue-500 hover:bg-blue-600 text-white">Ongoing</Badge>;
+        return <Badge className="bg-info hover:bg-info/90 text-info-foreground">Ongoing</Badge>;
       case 'pending':
         return <Badge variant="warning">Pending</Badge>;
     }

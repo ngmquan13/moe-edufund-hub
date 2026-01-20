@@ -139,12 +139,12 @@ const CitizenDashboard: React.FC = () => {
         </Card>
       </div>
 
-      {/* Middle Section: Active Courses Table */}
+      {/* Middle Section: Enrolled Courses Table */}
       <Card className="mb-6 animate-slide-up" style={{ animationDelay: '0.1s' }}>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-lg flex items-center gap-2">
             <BookOpen className="h-5 w-5" />
-            Active Courses
+            Enrolled Courses
           </CardTitle>
           <Button variant="ghost" size="sm" asChild>
             <Link to="/portal/courses">
@@ -158,7 +158,7 @@ const CitizenDashboard: React.FC = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>Course</TableHead>
-                  <TableHead>Monthly Fee</TableHead>
+                  <TableHead>Cycle Fee</TableHead>
                   <TableHead>Enrolled</TableHead>
                   <TableHead className="text-right">Status</TableHead>
                 </TableRow>
@@ -167,7 +167,51 @@ const CitizenDashboard: React.FC = () => {
                 {activeEnrolments.slice(0, 5).map((enrolment) => {
                   const course = getCourse(enrolment.courseId);
                   if (!course) return null;
-                  const hasCharge = outstandingCharges.some(c => c.courseId === course.id && c.status === 'unpaid');
+                  
+                  // Use the same logic as CoursesPage for payment status
+                  const courseCharges = outstandingCharges.filter(c => c.courseId === course.id);
+                  const unpaidCharges = courseCharges.filter(c => c.status === 'unpaid');
+                  const paidCharges = courseCharges.filter(c => c.status === 'paid');
+                  
+                  let paymentStatus: 'paid' | 'ongoing' | 'pending';
+                  if (unpaidCharges.length === 0) {
+                    if (paidCharges.length > 0) {
+                      // For one-time payment courses, if paid then it's fully paid
+                      if (course.paymentType === 'one_time') {
+                        paymentStatus = 'paid';
+                      } else {
+                        // For recurring courses - paid for current cycle, waiting for next
+                        paymentStatus = 'ongoing';
+                      }
+                    } else {
+                      paymentStatus = 'paid';
+                    }
+                  } else {
+                    paymentStatus = 'pending';
+                  }
+
+                  const getPaymentStatusBadge = (status: 'paid' | 'ongoing' | 'pending') => {
+                    switch (status) {
+                      case 'paid':
+                        return <Badge variant="success">Paid</Badge>;
+                      case 'ongoing':
+                        return <Badge className="bg-info hover:bg-info/90 text-info-foreground">Ongoing</Badge>;
+                      case 'pending':
+                        return <Badge variant="warning">Pending</Badge>;
+                    }
+                  };
+                  
+                  // Get billing cycle suffix for recurring courses
+                  const getBillingCycleSuffix = () => {
+                    if (course.paymentType !== 'recurring' || !course.billingCycle) return '';
+                    switch (course.billingCycle) {
+                      case 'monthly': return '/mo';
+                      case 'quarterly': return '/qtr';
+                      case 'bi_annually': return '/6mo';
+                      case 'annually': return '/yr';
+                      default: return '';
+                    }
+                  };
                   
                   return (
                     <TableRow key={enrolment.id}>
@@ -182,7 +226,9 @@ const CitizenDashboard: React.FC = () => {
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell className="font-medium">{formatCurrency(course.monthlyFee)}</TableCell>
+                      <TableCell className="font-medium">
+                        {formatCurrency(course.monthlyFee)}{getBillingCycleSuffix()}
+                      </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1 text-sm text-muted-foreground">
                           <Calendar className="h-3 w-3" />
@@ -190,11 +236,7 @@ const CitizenDashboard: React.FC = () => {
                         </div>
                       </TableCell>
                       <TableCell className="text-right">
-                        {hasCharge ? (
-                          <Badge variant="warning">Pending</Badge>
-                        ) : (
-                          <Badge variant="success">Paid</Badge>
-                        )}
+                        {getPaymentStatusBadge(paymentStatus)}
                       </TableCell>
                     </TableRow>
                   );
