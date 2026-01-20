@@ -313,14 +313,13 @@ const TransactionsPage: React.FC = () => {
                   <span className="text-muted-foreground">Transaction ID</span>
                   <span className="font-mono text-sm">{selectedTransaction.id}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Reference</span>
-                  <span className="font-mono text-sm">{selectedTransaction.reference}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Balance After</span>
-                  <span className="font-medium">{formatCurrency(selectedTransaction.balanceAfter)}</span>
-                </div>
+                {/* Only show Reference when card payment is involved */}
+                {(selectedTransaction.paymentMethod === 'card' || selectedTransaction.paymentMethod === 'combined') && selectedTransaction.reference && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Reference</span>
+                    <span className="font-mono text-sm">{selectedTransaction.reference}</span>
+                  </div>
+                )}
                 {selectedTransaction.period && (
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Period</span>
