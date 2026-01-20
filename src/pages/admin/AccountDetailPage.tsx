@@ -885,8 +885,8 @@ const AccountDetailPage: React.FC = () => {
                             {formatDateTime(txn.createdAt)}
                           </TableCell>
                           <TableCell>
-                            <Badge variant={txn.type === 'top_up' ? 'success' : txn.type === 'charge' ? 'warning' : 'default'}>
-                              {txn.type === 'top_up' ? 'Top-up' : txn.type === 'charge' ? 'Charge' : 'Payment'}
+                            <Badge variant={txn.type === 'top_up' ? 'success' : 'warning'}>
+                              {txn.type === 'top_up' ? 'Top-up' : 'Charge'}
                             </Badge>
                           </TableCell>
                           <TableCell>
