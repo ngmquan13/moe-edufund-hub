@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { TrendingUp, CreditCard, Receipt, Filter, Eye, CheckCircle2, XCircle, Wallet } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { TrendingUp, CreditCard, Receipt, Filter, Eye, CheckCircle2, XCircle, Wallet, Search, Calendar, X } from 'lucide-react';
 import { CitizenLayout } from '@/components/layouts/CitizenLayout';
 import { useAuth } from '@/contexts/AuthContext';
 import { useDataStore } from '@/hooks/useDataStore';
@@ -7,6 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
@@ -22,6 +24,12 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
+import {
   getEducationAccountByHolder,
   getTransactionsByAccount
 } from '@/lib/dataStore';
@@ -31,10 +39,14 @@ import {
   TransactionType,
   Transaction
 } from '@/lib/data';
+import { format, isAfter, isBefore, startOfDay, endOfDay, isValid } from 'date-fns';
 
 const TransactionsPage: React.FC = () => {
   const { citizenUser } = useAuth();
   const [typeFilter, setTypeFilter] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [fromDate, setFromDate] = useState<Date | undefined>(undefined);
+  const [toDate, setToDate] = useState<Date | undefined>(undefined);
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   
@@ -50,16 +62,56 @@ const TransactionsPage: React.FC = () => {
     new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
   
-  const filteredTransactions = sortedTransactions.filter(txn => 
-    typeFilter === 'all' || txn.type === typeFilter
-  );
+  // Filter transactions - treat 'payment' as 'charge' for display purposes
+  const filteredTransactions = useMemo(() => {
+    return sortedTransactions.filter(txn => {
+      // Type filter - map 'payment' to 'charge'
+      const effectiveType = txn.type === 'payment' ? 'charge' : txn.type;
+      if (typeFilter !== 'all' && effectiveType !== typeFilter) {
+        return false;
+      }
+      
+      // Search filter
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        const description = (txn.externalDescription || txn.description || '').toLowerCase();
+        const id = txn.id.toLowerCase();
+        if (!description.includes(query) && !id.includes(query)) {
+          return false;
+        }
+      }
+      
+      // Date range filter
+      const txnDate = new Date(txn.createdAt);
+      if (fromDate && isValid(fromDate)) {
+        if (isBefore(txnDate, startOfDay(fromDate))) {
+          return false;
+        }
+      }
+      if (toDate && isValid(toDate)) {
+        if (isAfter(txnDate, endOfDay(toDate))) {
+          return false;
+        }
+      }
+      
+      return true;
+    });
+  }, [sortedTransactions, typeFilter, searchQuery, fromDate, toDate]);
+
+  const clearFilters = () => {
+    setSearchQuery('');
+    setFromDate(undefined);
+    setToDate(undefined);
+    setTypeFilter('all');
+  };
+
+  const hasActiveFilters = searchQuery || fromDate || toDate || typeFilter !== 'all';
 
   const getTypeIcon = (type: TransactionType) => {
     switch (type) {
       case 'top_up':
         return <TrendingUp className="h-5 w-5 text-success" />;
       case 'payment':
-        return <CreditCard className="h-5 w-5 text-info" />;
       case 'charge':
         return <Receipt className="h-5 w-5 text-destructive" />;
     }
@@ -131,6 +183,11 @@ const TransactionsPage: React.FC = () => {
     setDetailDialogOpen(true);
   };
 
+  const formatDateDisplay = (date: Date | undefined) => {
+    if (!date || !isValid(date)) return '';
+    return format(date, 'dd/MM/yyyy');
+  };
+
   return (
     <CitizenLayout>
       <div className="mb-6 animate-fade-in">
@@ -140,22 +197,90 @@ const TransactionsPage: React.FC = () => {
         </p>
       </div>
 
-      {/* Filter */}
+      {/* Search and Filters */}
       <Card className="mb-6 animate-slide-up">
         <CardContent className="pt-6">
-          <div className="flex items-center gap-3">
-            <Filter className="h-4 w-4 text-muted-foreground" />
-            <Select value={typeFilter} onValueChange={setTypeFilter}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Filter by type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Types</SelectItem>
-                <SelectItem value="top_up">Top-ups</SelectItem>
-                <SelectItem value="charge">Charges</SelectItem>
-                <SelectItem value="payment">Payments</SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="flex flex-col gap-4">
+            {/* Search */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by description or transaction ID..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            
+            {/* Filters Row */}
+            <div className="flex flex-wrap items-end gap-4">
+              {/* Type Filter */}
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Type</Label>
+                <Select value={typeFilter} onValueChange={setTypeFilter}>
+                  <SelectTrigger className="w-[140px]">
+                    <SelectValue placeholder="Filter by type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Types</SelectItem>
+                    <SelectItem value="top_up">Top-ups</SelectItem>
+                    <SelectItem value="charge">Charges</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* From Date */}
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">From Date</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-[140px] justify-start text-left font-normal">
+                      <Calendar className="mr-2 h-4 w-4" />
+                      {fromDate ? formatDateDisplay(fromDate) : <span className="text-muted-foreground">Select</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <CalendarComponent
+                      mode="single"
+                      selected={fromDate}
+                      onSelect={setFromDate}
+                      disabled={(date) => toDate ? isAfter(date, toDate) : false}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              {/* To Date */}
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">To Date</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-[140px] justify-start text-left font-normal">
+                      <Calendar className="mr-2 h-4 w-4" />
+                      {toDate ? formatDateDisplay(toDate) : <span className="text-muted-foreground">Select</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <CalendarComponent
+                      mode="single"
+                      selected={toDate}
+                      onSelect={setToDate}
+                      disabled={(date) => fromDate ? isBefore(date, fromDate) : false}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              {/* Clear Filters */}
+              {hasActiveFilters && (
+                <Button variant="ghost" size="sm" onClick={clearFilters} className="gap-1">
+                  <X className="h-4 w-4" />
+                  Clear
+                </Button>
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -193,14 +318,9 @@ const TransactionsPage: React.FC = () => {
                     </div>
                   </div>
                   <div className="flex items-center gap-4">
-                    <div className="text-right">
-                      <p className={`text-lg font-semibold ${txn.amount > 0 ? 'text-success' : 'text-foreground'}`}>
-                        {txn.amount > 0 ? '+' : ''}{formatCurrency(txn.amount)}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        Balance: {formatCurrency(txn.balanceAfter)}
-                      </p>
-                    </div>
+                    <p className={`text-lg font-semibold ${txn.amount > 0 ? 'text-success' : 'text-foreground'}`}>
+                      {txn.amount > 0 ? '+' : ''}{formatCurrency(txn.amount)}
+                    </p>
                     <Button variant="ghost" size="icon" className="h-8 w-8">
                       <Eye className="h-4 w-4" />
                     </Button>
