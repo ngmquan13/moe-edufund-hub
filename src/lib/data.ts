@@ -251,9 +251,11 @@ export const batches: Batch[] = [
 export const auditLogs: AuditLog[] = [
   { id: 'AUD001', action: 'Account Created', entityType: 'EducationAccount', entityId: 'EA010', userId: 'USR001', userName: 'Admin User', details: 'New education account created for Jun Wei Ong', createdAt: '2024-12-01T10:30:00' },
   { id: 'AUD002', action: 'Batch Top-up', entityType: 'Batch', entityId: 'BAT001', userId: 'USR002', userName: 'Finance User', details: 'Annual Education Subsidy batch executed - 30 accounts, $15,000', createdAt: '2024-12-01T08:15:00' },
-  { id: 'AUD003', action: 'Fee Run', entityType: 'Batch', entityId: 'BAT002', userId: 'USR002', userName: 'Finance User', details: 'Monthly fee run completed - 45 enrolments charged', createdAt: '2024-12-05T14:30:00' },
+  { id: 'AUD003', action: 'Added to Course', entityType: 'Enrolment', entityId: 'ENR001', userId: 'USR003', userName: 'School Ops', details: 'Added Wei Ming Tan to Introduction to Programming (IT101)', createdAt: '2024-12-05T14:30:00' },
   { id: 'AUD004', action: 'Account Suspended', entityType: 'EducationAccount', entityId: 'EA007', userId: 'USR003', userName: 'School Ops', details: 'Account suspended due to deferment', createdAt: '2024-09-20T11:00:00' },
-  { id: 'AUD005', action: 'Manual Top-up', entityType: 'Transaction', entityId: 'TXN007', userId: 'USR002', userName: 'Finance User', details: 'Manual top-up of $500 for account EA008', createdAt: '2024-11-30T16:05:00' },
+  { id: 'AUD005', action: 'Ad-hoc Top-up', entityType: 'Transaction', entityId: 'TXN007', userId: 'USR002', userName: 'Finance User', details: 'Ad-hoc top-up of $500 for account EA008', createdAt: '2024-11-30T16:05:00' },
+  { id: 'AUD006', action: 'Removed from Course', entityType: 'Enrolment', entityId: 'ENR008', userId: 'USR003', userName: 'School Ops', details: 'Removed Siti Aminah from Financial Accounting (ACC301)', createdAt: '2024-11-25T09:00:00' },
+  { id: 'AUD007', action: 'Account Reactivated', entityType: 'EducationAccount', entityId: 'EA005', userId: 'USR001', userName: 'Admin User', details: 'Account reactivated after review', createdAt: '2024-11-20T15:30:00' },
 ];
 
 // Demo Admin Users

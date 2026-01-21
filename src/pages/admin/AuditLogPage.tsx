@@ -44,9 +44,10 @@ const AuditLogPage: React.FC = () => {
   });
 
   const getActionBadgeVariant = (action: string) => {
-    if (action.includes('Created')) return 'success';
-    if (action.includes('Suspended') || action.includes('Closed')) return 'destructive';
-    if (action.includes('Top-up') || action.includes('Fee')) return 'info';
+    if (action.includes('Created') || action.includes('Reactivated') || action.includes('Activated')) return 'success';
+    if (action.includes('Suspended') || action.includes('Closed') || action.includes('Removed')) return 'destructive';
+    if (action.includes('Top-up')) return 'info';
+    if (action.includes('Added') || action.includes('Enrolled')) return 'default';
     return 'secondary';
   };
 
