@@ -83,18 +83,45 @@ const ProfilePage: React.FC = () => {
     );
   }
 
-  // Validate Singapore phone number (8 digits starting with 6, 8, or 9)
+  // Validate Singapore phone number format: +65 XXXX XXXX
   const validateSGPhone = (phoneNumber: string): boolean => {
-    const cleaned = phoneNumber.replace(/\s|-/g, '');
-    // Singapore numbers: 8 digits starting with 6, 8, or 9
-    const sgPhoneRegex = /^[689]\d{7}$/;
-    return sgPhoneRegex.test(cleaned);
+    // Format: +65 XXXX XXXX (e.g., +65 9123 4567)
+    const sgPhoneRegex = /^\+65\s?\d{4}\s?\d{4}$/;
+    return sgPhoneRegex.test(phoneNumber);
+  };
+
+  const formatPhoneNumber = (value: string): string => {
+    // Remove all non-digit characters except +
+    let cleaned = value.replace(/[^\d+]/g, '');
+    
+    // Ensure it starts with +65
+    if (!cleaned.startsWith('+')) {
+      if (cleaned.startsWith('65')) {
+        cleaned = '+' + cleaned;
+      } else {
+        cleaned = '+65' + cleaned.replace(/^0+/, '');
+      }
+    }
+    
+    // Format as +65 XXXX XXXX
+    if (cleaned.length > 3) {
+      const countryCode = cleaned.slice(0, 3);
+      const remaining = cleaned.slice(3);
+      if (remaining.length > 4) {
+        return `${countryCode} ${remaining.slice(0, 4)} ${remaining.slice(4, 8)}`;
+      } else if (remaining.length > 0) {
+        return `${countryCode} ${remaining}`;
+      }
+      return countryCode;
+    }
+    return cleaned;
   };
 
   const handlePhoneChange = (value: string) => {
-    setPhone(value);
-    if (value && !validateSGPhone(value)) {
-      setPhoneError('Invalid Singapore phone number (8 digits starting with 6, 8, or 9)');
+    const formatted = formatPhoneNumber(value);
+    setPhone(formatted);
+    if (formatted && !validateSGPhone(formatted)) {
+      setPhoneError('Please enter a valid Singapore phone number (+65 XXXX XXXX)');
     } else {
       setPhoneError(null);
     }
@@ -271,9 +298,21 @@ const ProfilePage: React.FC = () => {
               </span>
             </div>
             <div>
-              <h2 className="text-xl font-bold text-foreground">
-                {holder.firstName} {holder.lastName}
-              </h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-xl font-bold text-foreground">
+                  {holder.firstName} {holder.lastName}
+                </h2>
+                <Badge 
+                  variant={
+                    educationAccount?.status === 'active' ? 'default' :
+                    educationAccount?.status === 'suspended' ? 'destructive' :
+                    educationAccount?.status === 'closed' ? 'secondary' :
+                    'outline'
+                  }
+                >
+                  {educationAccount?.status ? educationAccount.status.charAt(0).toUpperCase() + educationAccount.status.slice(1) : 'Unknown'}
+                </Badge>
+              </div>
               <p className="text-muted-foreground">Education Account: {educationAccount?.id || 'N/A'}</p>
               <p className="text-sm text-muted-foreground mt-1">
                 Member since {formatDate(holder.createdAt)}
@@ -333,8 +372,13 @@ const ProfilePage: React.FC = () => {
                   You can update these details
                 </CardDescription>
               </div>
-              {!isEditing && !isSuspended && (
-                <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
+              {!isEditing && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => setIsEditing(true)}
+                  disabled={isSuspended}
+                >
                   Edit
                 </Button>
               )}
@@ -363,12 +407,13 @@ const ProfilePage: React.FC = () => {
 
             <div className="space-y-2">
               <Label htmlFor="phone">Phone Number</Label>
+              <p className="text-xs text-muted-foreground mb-1">Format: +65 XXXX XXXX</p>
               <div className="relative">
                 <Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input 
+                <Input
                   id="phone"
                   type="tel"
-                  placeholder="e.g., 91234567"
+                  placeholder="+65 9123 4567"
                   value={phone}
                   onChange={(e) => handlePhoneChange(e.target.value)}
                   disabled={!isEditing}
@@ -422,12 +467,14 @@ const ProfilePage: React.FC = () => {
                 Manage your saved payment cards
               </CardDescription>
             </div>
-            {!isSuspended && (
-              <Button size="sm" onClick={() => setAddCardDialogOpen(true)}>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Card
-              </Button>
-            )}
+            <Button 
+              size="sm" 
+              onClick={() => setAddCardDialogOpen(true)}
+              disabled={isSuspended}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Card
+            </Button>
           </div>
         </CardHeader>
         <CardContent>
@@ -460,6 +507,7 @@ const ProfilePage: React.FC = () => {
                         variant="ghost" 
                         size="sm"
                         onClick={() => handleSetDefault(card.id)}
+                        disabled={isSuspended}
                       >
                         <Check className="h-4 w-4 mr-1" />
                         Set Default
@@ -469,6 +517,7 @@ const ProfilePage: React.FC = () => {
                       variant="ghost" 
                       size="icon"
                       onClick={() => openEditDialog(card)}
+                      disabled={isSuspended}
                     >
                       <Edit2 className="h-4 w-4" />
                     </Button>
@@ -477,6 +526,7 @@ const ProfilePage: React.FC = () => {
                       size="icon"
                       className="text-destructive hover:text-destructive"
                       onClick={() => openDeleteDialog(card)}
+                      disabled={isSuspended}
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
