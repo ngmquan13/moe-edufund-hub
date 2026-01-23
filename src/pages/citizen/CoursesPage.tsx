@@ -66,6 +66,9 @@ const CoursesPage: React.FC = () => {
   const enrolments = citizenUser ? getEnrolmentsByHolder(citizenUser.id) : [];
   const allCourses = useDataStore(getCourses);
   
+  // Check if account is suspended
+  const isSuspended = educationAccount?.status === 'suspended';
+  
   // Force re-render when data changes
   useDataStore(() => educationAccount);
 
@@ -313,7 +316,7 @@ const CoursesPage: React.FC = () => {
                               <span className="font-bold text-lg text-foreground">
                                 {formatCurrency(charge?.amount || course.monthlyFee)}
                               </span>
-                              <Button size="sm" onClick={() => handleProceedToCheckout(charge?.id)}>
+                              <Button size="sm" onClick={() => handleProceedToCheckout(charge?.id)} disabled={isSuspended}>
                                 Pay
                               </Button>
                             </>
@@ -414,7 +417,7 @@ const CoursesPage: React.FC = () => {
                           Total: {formatCurrency(selectedTotal)}
                         </p>
                       </div>
-                      <Button onClick={() => handleProceedToCheckout()}>
+                      <Button onClick={() => handleProceedToCheckout()} disabled={isSuspended}>
                         Proceed to Checkout
                         <ArrowRight className="h-4 w-4 ml-2" />
                       </Button>

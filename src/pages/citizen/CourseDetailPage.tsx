@@ -416,11 +416,13 @@ const CitizenCourseDetailPage: React.FC = () => {
                     {cycle.status === 'pending' && cycle.charge ? (
                       <>
                         <Badge variant="warning">Pending</Badge>
-                        {!isSuspended && (
-                          <Button size="sm" onClick={() => handleProceedToCheckout(cycle.charge!.id)}>
-                            Pay
-                          </Button>
-                        )}
+                        <Button 
+                          size="sm" 
+                          onClick={() => handleProceedToCheckout(cycle.charge!.id)}
+                          disabled={isSuspended}
+                        >
+                          Pay
+                        </Button>
                       </>
                     ) : (
                       <Badge className="bg-blue-500 hover:bg-blue-600 text-white">Ongoing</Badge>
