@@ -116,7 +116,7 @@ const CoursesPage: React.FC = () => {
   const [formFee, setFormFee] = useState('');
   const [formDescription, setFormDescription] = useState('');
   const [formActive, setFormActive] = useState(true);
-  const [formPaymentType, setFormPaymentType] = useState<PaymentType>('recurring');
+  const [formPaymentType, setFormPaymentType] = useState<PaymentType>('one_time');
   const [formBillingCycle, setFormBillingCycle] = useState<BillingCycle>('monthly');
   const [formStartDate, setFormStartDate] = useState<Date | undefined>();
   const [formEndDate, setFormEndDate] = useState<Date | undefined>();
@@ -216,7 +216,7 @@ const CoursesPage: React.FC = () => {
     setFormFee('');
     setFormDescription('');
     setFormActive(true);
-    setFormPaymentType('recurring');
+    setFormPaymentType('one_time');
     setFormBillingCycle('monthly');
     setFormStartDate(undefined);
     setFormEndDate(undefined);
@@ -396,7 +396,7 @@ const CoursesPage: React.FC = () => {
     }, 1500);
   };
 
-  const CourseFormFields = () => (
+  const courseFormFields = (
     <>
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
@@ -675,7 +675,7 @@ const CoursesPage: React.FC = () => {
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
-                <CourseFormFields />
+                {courseFormFields}
                 
                 {/* Payment Schedule Preview */}
                 {formPaymentType === 'recurring' && formStartDate && formEndDate && billingCycleValidation[formBillingCycle].enabled && paymentSchedule.length > 0 && (
@@ -850,7 +850,7 @@ const CoursesPage: React.FC = () => {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <CourseFormFields />
+            {courseFormFields}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
