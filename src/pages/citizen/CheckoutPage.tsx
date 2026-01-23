@@ -59,6 +59,9 @@ const CheckoutPage: React.FC = () => {
   const educationAccount = citizenUser ? getEducationAccountByHolder(citizenUser.id) : null;
   const outstandingCharges = educationAccount ? getOutstandingChargesByAccount(educationAccount.id) : [];
   
+  // Check if account is suspended
+  const isSuspended = educationAccount?.status === 'suspended';
+  
   useDataStore(() => educationAccount);
 
   // Get selected charge IDs from navigation state
@@ -95,11 +98,12 @@ const CheckoutPage: React.FC = () => {
   const combinedCardAmount = selectedTotal - combinedBalanceAmount;
 
   // Redirect if no charges selected
+  // Redirect if no charges selected or account is suspended
   useEffect(() => {
-    if (selectedChargeIds.length === 0) {
+    if (selectedChargeIds.length === 0 || isSuspended) {
       navigate('/portal/courses');
     }
-  }, [selectedChargeIds, navigate]);
+  }, [selectedChargeIds, navigate, isSuspended]);
 
   const formatCardNumber = (value: string) => {
     const v = value.replace(/\s+/g, '').replace(/[^0-9]/gi, '');

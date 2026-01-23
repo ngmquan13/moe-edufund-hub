@@ -49,14 +49,18 @@ const ProfilePage: React.FC = () => {
   const holder = citizenUser ? getAccountHolder(citizenUser.id) : null;
   const educationAccount = citizenUser ? getEducationAccountByHolder(citizenUser.id) : null;
   
+  // Check if account is suspended
+  const isSuspended = educationAccount?.status === 'suspended';
+  
   const [phone, setPhone] = useState(holder?.phone || '');
   const [email, setEmail] = useState(holder?.email || '');
   const [address, setAddress] = useState(holder?.address || '');
   const [isEditing, setIsEditing] = useState(false);
+  const [phoneError, setPhoneError] = useState<string | null>(null);
 
   // Payment Cards State
   const [savedCards, setSavedCards] = useState<PaymentCard[]>([
-    { id: '1', last4: '4242', brand: 'Visa', expiryMonth: '12', expiryYear: '26', isDefault: true, cardholderName: 'John Doe' },
+    { id: '1', last4: '4242', brand: 'Card', expiryMonth: '12', expiryYear: '26', isDefault: true, cardholderName: 'John Doe' },
   ]);
   const [addCardDialogOpen, setAddCardDialogOpen] = useState(false);
   const [editCardDialogOpen, setEditCardDialogOpen] = useState(false);
@@ -79,7 +83,33 @@ const ProfilePage: React.FC = () => {
     );
   }
 
+  // Validate Singapore phone number (8 digits starting with 6, 8, or 9)
+  const validateSGPhone = (phoneNumber: string): boolean => {
+    const cleaned = phoneNumber.replace(/\s|-/g, '');
+    // Singapore numbers: 8 digits starting with 6, 8, or 9
+    const sgPhoneRegex = /^[689]\d{7}$/;
+    return sgPhoneRegex.test(cleaned);
+  };
+
+  const handlePhoneChange = (value: string) => {
+    setPhone(value);
+    if (value && !validateSGPhone(value)) {
+      setPhoneError('Invalid Singapore phone number (8 digits starting with 6, 8, or 9)');
+    } else {
+      setPhoneError(null);
+    }
+  };
+
   const handleSave = () => {
+    if (phone && !validateSGPhone(phone)) {
+      toast({
+        title: "Validation Error",
+        description: "Please enter a valid Singapore phone number",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     toast({
       title: "Profile Updated",
       description: "Your contact details have been updated successfully.",
@@ -122,7 +152,7 @@ const ProfilePage: React.FC = () => {
     const newCard: PaymentCard = {
       id: `card-${Date.now()}`,
       last4,
-      brand: 'Visa',
+      brand: 'Card',
       expiryMonth: month,
       expiryYear: year,
       isDefault: savedCards.length === 0,
@@ -221,6 +251,16 @@ const ProfilePage: React.FC = () => {
         </p>
       </div>
 
+      {/* Suspended Account Warning */}
+      {isSuspended && (
+        <Alert variant="destructive" className="mb-6">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            Your account is suspended. You can view your details but cannot make payments or update contact information.
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Profile Header */}
       <Card className="mb-6 animate-slide-up">
         <CardContent className="pt-6">
@@ -293,7 +333,7 @@ const ProfilePage: React.FC = () => {
                   You can update these details
                 </CardDescription>
               </div>
-              {!isEditing && (
+              {!isEditing && !isSuspended && (
                 <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
                   Edit
                 </Button>
@@ -301,6 +341,11 @@ const ProfilePage: React.FC = () => {
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
+            {isSuspended && (
+              <p className="text-sm text-muted-foreground italic">
+                Contact information cannot be edited while account is suspended.
+              </p>
+            )}
             <div className="space-y-2">
               <Label htmlFor="email">Email Address</Label>
               <div className="relative">
@@ -323,12 +368,16 @@ const ProfilePage: React.FC = () => {
                 <Input 
                   id="phone"
                   type="tel"
+                  placeholder="e.g., 91234567"
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
+                  onChange={(e) => handlePhoneChange(e.target.value)}
                   disabled={!isEditing}
-                  className="pl-10"
+                  className={`pl-10 ${phoneError && isEditing ? 'border-destructive' : ''}`}
                 />
               </div>
+              {phoneError && isEditing && (
+                <p className="text-xs text-destructive">{phoneError}</p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -373,10 +422,12 @@ const ProfilePage: React.FC = () => {
                 Manage your saved payment cards
               </CardDescription>
             </div>
-            <Button size="sm" onClick={() => setAddCardDialogOpen(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Card
-            </Button>
+            {!isSuspended && (
+              <Button size="sm" onClick={() => setAddCardDialogOpen(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Card
+              </Button>
+            )}
           </div>
         </CardHeader>
         <CardContent>

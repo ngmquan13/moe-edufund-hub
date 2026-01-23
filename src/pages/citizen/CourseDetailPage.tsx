@@ -41,6 +41,9 @@ const CitizenCourseDetailPage: React.FC = () => {
   const enrolments = citizenUser ? getEnrolmentsByHolder(citizenUser.id) : [];
   const transactions = educationAccount ? getTransactionsByAccount(educationAccount.id) : [];
   
+  // Check if account is suspended
+  const isSuspended = educationAccount?.status === 'suspended';
+  
   // Force re-render when data changes
   useDataStore(() => educationAccount);
 
@@ -413,9 +416,11 @@ const CitizenCourseDetailPage: React.FC = () => {
                     {cycle.status === 'pending' && cycle.charge ? (
                       <>
                         <Badge variant="warning">Pending</Badge>
-                        <Button size="sm" onClick={() => handleProceedToCheckout(cycle.charge!.id)}>
-                          Pay
-                        </Button>
+                        {!isSuspended && (
+                          <Button size="sm" onClick={() => handleProceedToCheckout(cycle.charge!.id)}>
+                            Pay
+                          </Button>
+                        )}
                       </>
                     ) : (
                       <Badge className="bg-blue-500 hover:bg-blue-600 text-white">Ongoing</Badge>
