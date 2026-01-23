@@ -26,9 +26,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { useDataStore } from '@/hooks/useDataStore';
 import {
   getAccountHolder,
   getEducationAccountByHolder,
+} from '@/lib/dataStore';
+import {
   formatDate,
   getSchoolingLabel
 } from '@/lib/data';
@@ -46,8 +49,12 @@ interface PaymentCard {
 
 const ProfilePage: React.FC = () => {
   const { citizenUser } = useAuth();
+  
+  // Use reactive data store to get updates when account status changes
+  const educationAccount = useDataStore(() => 
+    citizenUser ? getEducationAccountByHolder(citizenUser.id) : null
+  );
   const holder = citizenUser ? getAccountHolder(citizenUser.id) : null;
-  const educationAccount = citizenUser ? getEducationAccountByHolder(citizenUser.id) : null;
   
   // Check if account is suspended
   const isSuspended = educationAccount?.status === 'suspended';
